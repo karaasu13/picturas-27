@@ -2,8 +2,6 @@
 // As funções de validação são puras para poderem ser testadas sem Docker.
 
 const { execFile } = require("child_process");
-const crypto = require("crypto");
-const fs = require("fs");
 const path = require("path");
 
 const LIMITS = {
@@ -171,16 +169,6 @@ function ffprobe(filePath) {
   });
 }
 
-function sha256File(filePath) {
-  return new Promise((resolve, reject) => {
-    const hash = crypto.createHash("sha256");
-    fs.createReadStream(filePath)
-      .on("error", reject)
-      .on("data", (chunk) => hash.update(chunk))
-      .on("end", () => resolve(hash.digest("hex")));
-  });
-}
-
 function serializeVideo(video, url = null) {
   return {
     _id: video._id,
@@ -228,7 +216,6 @@ module.exports = {
   validateCut,
   cutResultName,
   ffprobe,
-  sha256File,
   serializeVideo,
   serializeTask,
 };

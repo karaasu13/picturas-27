@@ -13,7 +13,6 @@ const videoSchema = new mongoose.Schema(
 
     format: { type: String, enum: ["mp4", "mov", "avi"], required: true },
     size: { type: Number, required: true },
-    sha256: { type: String, required: true },
 
     duration: { type: Number, required: true }, // segundos
     width: { type: Number, required: true },

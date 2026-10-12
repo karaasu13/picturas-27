@@ -277,7 +277,6 @@ router.post("/:user/:project/videos", guard, loadUserType, (req, res) => {
         return fail(res, status, check.code, check.message);
       }
 
-      const sha256 = await V.sha256File(tmpPath);
       const stored = await post_file(
         req.params.user,
         req.params.project,
@@ -293,7 +292,6 @@ router.post("/:user/:project/videos", guard, loadUserType, (req, res) => {
         name,
         storage_key: keyFromStorage(stored),
         size: req.file.size,
-        sha256,
         source: "upload",
         ...check.meta,
       });
@@ -477,7 +475,6 @@ async function completeTask(taskId, outputRel) {
 
   const existing = (await Video.getAll(task.user_id, task.project_id)).map((v) => v.name);
   const name = V.cutResultName(source?.name || task.video_name, existing);
-  const sha256 = await V.sha256File(outAbs);
   const { size } = await fsp.stat(outAbs);
 
   const stored = await post_file(task.user_id, task.project_id, STORAGE_STAGE, outAbs, name, V.MIME_TYPES[format]);
@@ -490,7 +487,6 @@ async function completeTask(taskId, outputRel) {
     name,
     storage_key: storageKey,
     size,
-    sha256,
     source: "cut",
     parent_video_id: task.video_id,
     task_id: task._id,
