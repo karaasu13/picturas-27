@@ -42,7 +42,12 @@ module.exports.countActiveForVideo = async (video_id) => {
   return await VideoTask.countDocuments({ video_id, state: { $in: ACTIVE_STATES } }).exec();
 };
 
-module.exports.getActiveForProject = async (user_id, project_id) => {
+// "Em Fila" mas nunca enviadas ao worker, criadas antes de `before`
+module.exports.getUnsent = async (before) => {
+  return await VideoTask.find({ state: "queued", msg_id: null, createdAt: { $lt: before } }).exec();
+};
+
+module.exports.getActiveForProject =async (user_id, project_id) => {
   return await VideoTask.find({ user_id, project_id, state: { $in: ACTIVE_STATES } }).exec();
 };
 

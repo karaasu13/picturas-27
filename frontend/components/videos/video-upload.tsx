@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useUploadVideo } from "@/lib/mutations/videos";
+import { useGetVideos } from "@/lib/queries/videos";
 import {
   formatBytes,
   ProjectVideo,
@@ -28,6 +29,8 @@ export function VideoUpload({
 }) {
   const { toast } = useToast();
   const upload = useUploadVideo({ uid, pid, token });
+  // Mesma query da página: vem da cache, não faz outro pedido
+  const videos = useGetVideos(uid, pid, token);
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -35,6 +38,17 @@ export function VideoUpload({
   const busy = upload.isPending;
 
   function start(file: File) {
+    // Avisar já, em vez de depois de enviar até 2 GB (o servidor volta a verificar)
+    if (videos.data?.some((v) => v.name === file.name)) {
+      toast({
+        title: "Não foi possível carregar o vídeo",
+        description:
+          "Este projeto já tem um vídeo com esse nome. Muda o nome do ficheiro e tenta novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const controller = new AbortController();
     abortRef.current = controller;
     setFileName(file.name);

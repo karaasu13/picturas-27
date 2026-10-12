@@ -353,9 +353,11 @@ async function prepareAndQueue(task, video) {
       return;
     }
 
+    // msg_id só é gravado depois do envio: no arranque, "queued" sem msg_id
+    // quer dizer que o pedido nunca chegou ao worker
     const msg_id = `video-cut-${uuidv4()}`;
-    await VideoTask.setMsgId(task._id, msg_id);
     await send_video_cut(msg_id, fresh, paths);
+    await VideoTask.setMsgId(task._id, msg_id);
   } catch (err) {
     await removeDir(paths.dir);
     await failTask(
@@ -562,7 +564,20 @@ async function handleWorkerMessage(msg) {
   }
 }
 
+// Tarefas que ficaram a meio do prepareAndQueue quando o serviço parou: nunca
+// vão chegar ao worker, por isso falham (e a quota é devolvida) em vez de
+// ficarem "Em Fila" para sempre
+async function failUnsentTasks(bootTime) {
+  for (const t of await VideoTask.getUnsent(bootTime)) {
+    await removeDir(taskPaths(t._id, "mp4").dir);
+    await failTask(t._id, "unexpected", "O serviço reiniciou antes de enviar a tarefa ao worker");
+  }
+}
+
 function start_video_consumer() {
+  failUnsentTasks(new Date()).catch((err) =>
+    console.error("[VIDEO] could not fail unsent tasks:", err.message),
+  );
   read_video_results(handleWorkerMessage);
 }
 
