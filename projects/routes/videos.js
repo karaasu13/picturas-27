@@ -451,16 +451,7 @@ router.delete("/:user/:project/video-tasks/:task", guard, wrap(async (req, res) 
   // Sinal para o worker: se ainda está na fila é descartada quando chegar a
   // vez dela; se está a ser processada, o ffmpeg é interrompido e os
   // ficheiros temporários são apagados.
-  try {
-    const video = await Video.getOne(task.user_id, task.project_id, task.video_id);
-    const paths = taskPaths(task._id, video?.format || "mp4");
-    await fsp.mkdir(abs(paths.dir), { recursive: true });
-    await fsp.writeFile(abs(paths.cancelFlag), new Date().toISOString());
-  } catch (err) {
-    console.error(`[VIDEO] could not write cancel flag task=${task._id}:`, err.message);
-  }
-
-  await refund(task);
+  await cancelTask(task);
   send_video_task_update(task);
   res.status(200).jsonp(V.serializeTask(task));
 }));
@@ -570,8 +561,31 @@ function start_video_consumer() {
   read_video_results(handleWorkerMessage);
 }
 
+// Pede ao worker para parar e devolve a quota (cancelamento pelo utilizador
+// ou porque o projeto foi apagado)
+async function cancelTask(task) {
+  try {
+    const video = await Video.getOne(task.user_id, task.project_id, task.video_id);
+    const paths = taskPaths(task._id, video?.format || "mp4");
+    await fsp.mkdir(abs(paths.dir), { recursive: true });
+    await fsp.writeFile(abs(paths.cancelFlag), new Date().toISOString());
+  } catch (err) {
+    console.error(`[VIDEO] could not write cancel flag task=${task._id}:`, err.message);
+  }
+  await refund(task);
+}
+
 // Usado quando um projeto (ou a conta) é apagado
 async function deleteProjectVideos(userId, projectId) {
+  // cortes ainda em curso: cancelar (o worker para e a quota é devolvida)
+  for (const t of await VideoTask.getActiveForProject(userId, projectId)) {
+    const cancelled = await VideoTask.transition(t._id, ACTIVE_STATES, {
+      state: "cancelled",
+      finished_at: new Date(),
+    });
+    if (cancelled) await cancelTask(cancelled);
+  }
+
   const videos = await Video.getAll(userId, projectId);
   for (const v of videos) {
     await delete_image(userId, projectId, STORAGE_STAGE, v.storage_key).catch(() => {});
