@@ -517,7 +517,12 @@ async function handleWorkerMessage(msg) {
   if (!taskId || !mongoose.isValidObjectId(taskId)) return;
 
   const task = await VideoTask.getById(taskId);
-  if (!task) return;
+  if (!task) {
+    // A tarefa já não existe (o projeto foi apagado entretanto): só falta
+    // apagar os ficheiros temporários que o worker deixou
+    await removeDir(taskPaths(taskId, "mp4").dir);
+    return;
+  }
   const paths = taskPaths(task._id, V.extOf(msg?.output?.videoURI || "") || "mp4");
 
   switch (msg.status) {
