@@ -440,6 +440,28 @@ services:
       - RABBITMQ_PASS=password
       - GEN_EXPAND_URL=http://generative-mock:7860
       
+  video_cut_tool:
+    build:
+      context: ./Tools
+      dockerfile: video_cut/Dockerfile
+    restart: on-failure
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - image_data:/app/images
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=user
+      - RABBITMQ_PASS=password
+      - VIDEO_TASK_TIMEOUT=900
+    # Limites por worker de vídeo (REQ-VID-CUT-024)
+    cpus: 2.0
+    mem_limit: 4g
+
   watermark_tool_ms:
     image: prcsousa/picturas-watermark-tool-ms:latest
     restart: always

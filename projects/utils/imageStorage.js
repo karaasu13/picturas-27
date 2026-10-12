@@ -12,6 +12,8 @@ const httpsAgent = new https.Agent({
   key: key,
 });
 
+const FormData = require("form-data");
+
 const img_storage_ms = "http://img_storage:11000";
 
 async function get_image_internal_url(user, project, type, img) {
@@ -47,4 +49,19 @@ async function copy_image(userId, projectId, fromStage, toStage, fileName) {
   );
 }
 
-module.exports = { get_image_internal_url, get_image_public_url, post_image, delete_image, copy_image };
+// Envia um ficheiro em disco em streaming (vídeos até 2 GB, sem os ter em memória)
+async function post_file(user, project, type, filePath, fileName, contentType) {
+  const data = new FormData();
+  data.append("file", fs.createReadStream(filePath), {
+    filename: fileName,
+    contentType: contentType,
+  });
+
+  return await axios.post(`${img_storage_ms}/upload-file/${user}/${project}/${type}`, data, {
+    headers: data.getHeaders(),
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+  });
+}
+
+module.exports = { get_image_internal_url, get_image_public_url, post_image, delete_image, copy_image, post_file };

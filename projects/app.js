@@ -6,6 +6,7 @@ var logger = require("morgan");
 const mongoose = require("mongoose");
 
 const { router: projectsRouter, process_msg } = require("./routes/projects");
+const { router: videosRouter, start_video_consumer } = require("./routes/videos");
 
 // Run Docker
 const mongoDB = "mongodb://projects_mongoDB:27018/project";
@@ -31,10 +32,15 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Vídeos (UC-VID-001) antes das rotas dos projetos
+app.use("/", videosRouter);
 app.use("/", projectsRouter);
 
 // Start the message processing
 process_msg();
+
+// Estados das tarefas de vídeo enviados pelo worker video_cut
+start_video_consumer();
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
