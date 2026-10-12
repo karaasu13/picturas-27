@@ -1,6 +1,7 @@
 "use client";
 
-import { Download, LoaderCircle, OctagonAlert, Play } from "lucide-react";
+import { Download, Film, LoaderCircle, OctagonAlert, Play } from "lucide-react";
+import Link from "next/link";
 import { fetchSharedProject, resolveShareLink } from "@/lib/projects";
 import { ProjectImageList } from "@/components/project-page/project-image-list";
 import { ViewToggle } from "@/components/project-page/view-toggle";
@@ -724,6 +725,15 @@ const handleCancel = () => {
                 />
                 )}
                 </>
+              )}
+
+              {/* Vídeos do projeto (UC-VID-001): só o dono */}
+              {session.user._id === ownerId && !shareId && (
+                <Button asChild variant="outline">
+                  <Link href={`/dashboard/${pid}/videos`}>
+                    <Film /> Vídeos
+                  </Link>
+                </Button>
               )}
 
               <DropdownMenu>
