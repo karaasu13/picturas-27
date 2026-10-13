@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import Image from "next/image";
+import { isVideoFile } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import * as ProjectTypes from "@/lib/projects";
 import { ProjectImage } from "./project-image";
@@ -291,19 +292,34 @@ useEffect(() => {
       </div>
       <DialogContent className="max-w-[80%] mt-4 overflow-y-scroll overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Image Preview</DialogTitle>
+          <DialogTitle>
+            {previewImage && isVideoFile(previewImage)
+              ? "Video Preview"
+              : "Image Preview"}
+          </DialogTitle>
         </DialogHeader>
         <div className="flex justify-center items-center">
-          {previewImage && (
-            <Image
-              src={previewImage}
-              width={500}
-              height={500}
-              className={`object-contain rounded-md w-full ${previewText ? "max-h-[60vh]" : "max-h-[80vh]"}`}
-              alt="Preview"
-              unoptimized
-            />
-          )}
+          {previewImage &&
+            (isVideoFile(previewImage) ? (
+              <video
+                src={previewImage}
+                controls
+                autoPlay
+                loop
+                muted
+                playsInline
+                className={`object-contain rounded-md w-full bg-black ${previewText ? "max-h-[60vh]" : "max-h-[80vh]"}`}
+              />
+            ) : (
+              <Image
+                src={previewImage}
+                width={500}
+                height={500}
+                className={`object-contain rounded-md w-full ${previewText ? "max-h-[60vh]" : "max-h-[80vh]"}`}
+                alt="Preview"
+                unoptimized
+              />
+            ))}
         </div>
         {previewText && previewText.length > 0 && (
           <DialogFooter>

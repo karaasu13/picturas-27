@@ -26,6 +26,7 @@ class ToolMSG:
         'obj_ai': 'obj_ai_queue',
         'people_ai': 'people_ai_queue',
         'expand_ai': 'expand_ai_queue',
+        'video_speed': 'video_speed_queue',
         'project': 'project_queue'
     }
     

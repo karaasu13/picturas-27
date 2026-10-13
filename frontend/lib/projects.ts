@@ -2,6 +2,7 @@ import { api } from "./axios";
 import axios from "axios";
 import JSZip from "jszip";
 import { ToolNames, ToolParams } from "./tool-types";
+import { isVideoFile } from "./utils";
 import { PDFDocument } from "pdf-lib";
 
 function buildQuery(params: { ownerId?: string; shareId?: string }) {
@@ -376,8 +377,9 @@ export const downloadProjectImage = async ({
   if (response.status !== 200 || !response.data)
     throw new Error("Failed to download project image");
 
-  const blob = new Blob([response.data], { type: "image/png" });
-  const file = new File([blob], imageName, { type: "image/png" });
+  const mimeType = isVideoFile(imageName) ? "video/mp4" : "image/png";
+  const blob = new Blob([response.data], { type: mimeType });
+  const file = new File([blob], imageName, { type: mimeType });
 
   return {
     name: imageName,

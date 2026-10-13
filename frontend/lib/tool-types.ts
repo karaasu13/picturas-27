@@ -62,6 +62,10 @@ export type ExpandAiParams = {
   guidance?: number;
 };
 
+export interface VideoSpeedToolParams {
+  speed: number; // 0.25 - 4.0 (1.0 velocidade original)
+}
+
 export type ToolParams =
   | BinarizationToolParams
   | BorderToolParams
@@ -71,6 +75,7 @@ export type ToolParams =
   | ResizeToolParams
   | RotateToolParams
   | SaturationToolParams
+  | VideoSpeedToolParams
   | ExpandAiParams
   | object;
 
@@ -92,4 +97,5 @@ export type ToolNames =
   | "obj_ai"
   | "people_ai"
   | "expand_ai"
+  | "video_speed"
   | "project";

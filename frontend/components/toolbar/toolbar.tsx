@@ -6,6 +6,7 @@ import ResizeTool from "./resize-tool";
 import RotateTool from "./rotate-tool";
 import SaturationTool from "./saturation-tool";
 import BorderTool from "./border-tool";
+import VideoSpeedTool from "./video-speed-tool";
 import BinarizationTool from "./binarization-tool";
 import WatermarkTool from "./watermark-tool";
 import CropAITool from "./ai-crop-tool";
@@ -67,6 +68,7 @@ export function Toolbar() {
         <CropTool disabled={disabled} />
         <ResizeTool disabled={disabled} />
         <BorderTool disabled={disabled} />
+        <VideoSpeedTool disabled={disabled} />
         <WatermarkTool disabled={disabled} />
         <BgRemovalAITool disabled={disabled} />
         <CropAITool disabled={disabled} />

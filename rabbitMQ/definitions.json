@@ -160,6 +160,13 @@
             "arguments": {}
         },
         {
+            "name": "video_speed_queue",
+            "vhost": "/",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {}
+        },
+        {
             "name": "ws_queue",
             "vhost": "/",
             "durable": true,
@@ -313,6 +320,14 @@
             "destination": "expand_ai_queue",
             "destination_type": "queue",
             "routing_key": "expand_ai_queue",
+            "arguments": {}
+        },
+        {
+            "source": "picturas",
+            "vhost": "/",
+            "destination": "video_speed_queue",
+            "destination_type": "queue",
+            "routing_key": "video_speed_queue",
             "arguments": {}
         },
         {

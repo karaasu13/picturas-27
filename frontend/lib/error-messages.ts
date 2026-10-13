@@ -230,6 +230,34 @@ export function getAiErrorMessage(
             "Não foi possível detetar objetos na imagem. Tenta novamente ou usa outra imagem com mais contraste.",
         };
 
+      case 3000: // video_speed wrong_procedure
+      case 3001: // video_speed error_processing
+        return {
+          title: "Erro na alteração de velocidade",
+          description:
+            "Não foi possível alterar a velocidade deste vídeo. Tenta novamente ou usa outro vídeo.",
+        };
+
+      case 3002: // video_speed invalid_speed
+        return {
+          title: "Velocidade inválida",
+          description: "Escolhe uma velocidade entre 0.25x e 4x.",
+        };
+
+      case 3003: // video_speed unsupported_format
+        return {
+          title: "Formato de vídeo não suportado",
+          description:
+            "Este ficheiro não é um vídeo suportado. Usa um vídeo MP4, MOV ou AVI e aplica esta ferramenta apenas a vídeos.",
+        };
+
+      case 3004: // video_speed timeout
+        return {
+          title: "O processamento demorou demasiado",
+          description:
+            "O vídeo demorou demasiado tempo a processar. Tenta um vídeo mais curto ou outra velocidade.",
+        };
+
       // Se tiveres códigos extra dos outros serviços (people_ai, text_ai), vais só acrescentando aqui.
     }
   }

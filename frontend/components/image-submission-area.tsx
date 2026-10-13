@@ -1,12 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import AppDropzone from "./app-dropzone";
-import { FileImage, ImagePlus, Plus, X } from "lucide-react";
+import { FileImage, FileVideo, ImagePlus, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { HoverCard, HoverCardTrigger } from "./ui/hover-card";
 import { HoverCardContent } from "@radix-ui/react-hover-card";
 import ImagePreview from "./image-preview";
-import { extractZipImages } from "@/lib/utils";
+import {
+  extractZipImages,
+  isAcceptedVideo,
+  MAX_VIDEO_BYTES,
+  normalizeVideoFile,
+} from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ImageSubmissionArea({
   receivedFiles = [],
@@ -16,6 +22,7 @@ export default function ImageSubmissionArea({
   onDrop: (files: File[]) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
+  const { toast } = useToast();
 
   const handleDrop = async (acceptedFiles: File[]) => {
     const compatibleFileTypes = [
@@ -31,6 +38,16 @@ export default function ImageSubmissionArea({
       if (file.type === "application/zip") {
         const extractedFiles = await extractZipImages(file);
         compatibleFiles.push(...extractedFiles);
+      } else if (isAcceptedVideo(file)) {
+        if (file.size > MAX_VIDEO_BYTES) {
+          toast({
+            title: "Video too large",
+            description: `${file.name} exceeds the ${MAX_VIDEO_BYTES / (1024 * 1024)} MB limit.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        compatibleFiles.push(normalizeVideoFile(file));
       } else if (compatibleFileTypes.includes(file.type)) {
         compatibleFiles.push(file);
       }
@@ -72,7 +89,7 @@ export default function ImageSubmissionArea({
             <div className="flex flex-col gap-4 items-center justify-center max-w-[20rem]">
               <ImagePlus size={64} />
               <p className="font-medium text-lg">
-                Drag and drop images or a .zip
+                Drag and drop images, a video (.mp4, .mov, .avi) or a .zip
               </p>
             </div>
           </AppDropzone>
@@ -89,7 +106,11 @@ export default function ImageSubmissionArea({
                   >
                     <CardContent className="py-2 px-3 relative">
                       <div className="flex flex-col items-center justify-center pointer-events-none">
-                        <FileImage className="w-10 h-7 text-primary mb-1" />
+                        {file.type.startsWith("video/") ? (
+                          <FileVideo className="w-10 h-7 text-primary mb-1" />
+                        ) : (
+                          <FileImage className="w-10 h-7 text-primary mb-1" />
+                        )}
                         <p className="text-xs text-center truncate w-full">
                           {file.name}
                         </p>

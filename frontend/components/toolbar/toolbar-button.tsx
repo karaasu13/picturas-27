@@ -166,7 +166,13 @@ export function ToolbarButton({
           setWaiting(true);
           preview.setWaiting(tool.procedure);
 
-          setTimeout(() => setTimedout(true), 10000 * (project.tools.length + 1));
+          // vídeos demoram mais a processar do que imagens
+          const hasVideoTool =
+            tool.procedure === "video_speed" ||
+            project.tools.some((t) => t.procedure === "video_speed");
+          const perToolMs = hasVideoTool ? 120000 : 10000;
+
+          setTimeout(() => setTimedout(true), perToolMs * (project.tools.length + 1));
         },
         onError: (error) => {
           if (handleProjectConflict(error)) return;

@@ -403,6 +403,20 @@ services:
     volumes:
       - image_data:/app/images
 
+  
+  video_speed_tool:
+    build:
+      context: ./Tools
+      dockerfile: video_speed/Dockerfile
+    restart: on-failure
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - image_data:/app/images
+
   generative-mock:
     build: ./generative-mock
     ports:

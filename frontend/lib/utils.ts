@@ -6,6 +6,36 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Tamanho máximo de um vídeo carregado (o Nginx aceita até 110 MB no upload)
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+
+// Verdadeiro se o nome ou URL (com ou sem query string) tem extensão de vídeo
+export function isVideoFile(nameOrUrl?: string | null): boolean {
+  if (!nameOrUrl) return false;
+  const clean = nameOrUrl.split("#")[0].split("?")[0];
+  return /\.(mp4|webm|mov|m4v|avi)$/i.test(clean);
+}
+
+// Formatos de vídeo que podem ser carregados (a ferramenta devolve sempre MP4)
+const ACCEPTED_VIDEO_MIME: Record<string, string> = {
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  avi: "video/x-msvideo",
+};
+
+// Alguns browsers/sistemas não indicam o tipo MIME de .mov/.avi; por isso verifica-se também a extensão
+export function isAcceptedVideo(file: { type: string; name: string }): boolean {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return Object.values(ACCEPTED_VIDEO_MIME).includes(file.type) || ext in ACCEPTED_VIDEO_MIME;
+}
+
+// Garante que o ficheiro tem o tipo MIME certo antes do upload (o backend guarda esse tipo)
+export function normalizeVideoFile(file: File): File {
+  if (file.type) return file;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return new File([file], file.name, { type: ACCEPTED_VIDEO_MIME[ext] ?? "video/mp4" });
+}
+
 export const extractZipImages = async (zipFile: File): Promise<File[]> => {
   const jszip = new JSZip();
   const zipContent = await jszip.loadAsync(zipFile);
