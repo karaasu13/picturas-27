@@ -1,5 +1,6 @@
 const express = require("express");
 const uploadRoutes = require("./route/upload");
+const uploadFileRoutes = require("./route/uploadFile");
 const imageRoutes = require("./route/images");
 const deleteRoutes = require("./route/delete");
 const copyRoutes = require("./route/copy"); 
@@ -7,6 +8,7 @@ const copyRoutes = require("./route/copy");
 const app = express();
 
 app.use("/upload", uploadRoutes);
+app.use("/upload-file", uploadFileRoutes); // ficheiros grandes (vídeo), em streaming
 app.use("/image", imageRoutes);
 app.use("/delete", deleteRoutes);
 app.use("/copy", copyRoutes); 

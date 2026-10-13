@@ -15,3 +15,6 @@ backups/
 # cache do Python
 __pycache__/
 *.py[cod]
+
+# ficheiros temporários dos vídeos quando o projects corre fora do Docker
+projects/images/

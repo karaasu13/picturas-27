@@ -99,6 +99,13 @@ function process_msg() {
             }
             }
 
+        // estado de uma tarefa de vídeo (UC-VID-001): só para o dono
+        else if (msg_content.type === "video-task") {
+            if (user && msg_content.task) {
+                io.to(user).emit("video-task", msg_content.task);
+            }
+        }
+
         //  project updated
         else if (/project-updated/.test(msg_id) || msg_content.type === "project-updated") {
             const projectId = msg_content.projectId;
