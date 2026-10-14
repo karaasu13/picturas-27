@@ -237,18 +237,22 @@ def build_ffmpeg_cmd(recipe, infos, inputs, output_path):
     """
     output, video_clips, audio_clips = _check_recipe(recipe, infos)
 
-    # Codec, fps e pix_fmt de saída: os do primeiro clip de vídeo (assim um
-    # corte mantém o formato do original)
+    # fps de saída: o do primeiro clip de vídeo. Codec: se o formato não muda,
+    # o da origem desse clip (um corte mantém o original); se muda, H.264
+    # (UC-003: MP4/MOV -> H.264 + AAC, AVI -> H.264 + MP3). Nunca HEVC em AVI.
     first = min(video_clips, key=lambda c: c["posicao"])
     v0 = _first_stream(infos[first["video_id"]], "video")
-    encoder = VIDEO_ENCODERS.get(v0.get("codec_name"))
-    if encoder is None:
-        raise RenderError("invalid_input", f"Codec de vídeo não suportado: {v0.get('codec_name')}")
+    source_codec = v0.get("codec_name")
+    if source_codec not in VIDEO_ENCODERS:
+        raise RenderError("invalid_input", f"Codec de vídeo não suportado: {source_codec}")
     fps_str, fps = _fps(v0)
-    ten_bit = encoder == "libx265" and (v0.get("pix_fmt") or "").startswith("yuv420p10")
-    pix_fmt = "yuv420p10le" if ten_bit else "yuv420p"
 
     container = container_of(output_path)
+    source_format = os.path.splitext(inputs[first["video_id"]])[1].lower().lstrip(".")
+    keep_codec = source_format == container and not (container == "avi" and source_codec == "hevc")
+    encoder = VIDEO_ENCODERS[source_codec] if keep_codec else "libx264"
+    ten_bit = encoder == "libx265" and (v0.get("pix_fmt") or "").startswith("yuv420p10")
+    pix_fmt = "yuv420p10le" if ten_bit else "yuv420p"
     W, H = output["largura"], output["altura"]
     if output["fit"] == "crop":
         reframe = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}"

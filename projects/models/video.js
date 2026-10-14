@@ -21,8 +21,8 @@ const videoSchema = new mongoose.Schema(
     video_codec: { type: String, enum: ["h264", "hevc"], required: true },
     has_audio: { type: Boolean, default: false },
 
-    // "upload" ou "cut" (resultado de um corte; o original nunca é alterado)
-    source: { type: String, enum: ["upload", "cut"], default: "upload" },
+    // "upload" ou "render" (resultado de uma exportação; os originais nunca são alterados)
+    source: { type: String, enum: ["upload", "render"], default: "upload" },
     parent_video_id: { type: mongoose.Schema.Types.ObjectId, default: null },
     task_id: { type: mongoose.Schema.Types.ObjectId, default: null },
 

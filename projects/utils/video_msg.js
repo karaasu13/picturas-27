@@ -1,6 +1,6 @@
 // Mensagens RabbitMQ das tarefas de vídeo (UC-VID-001).
 //
-//  Projects-MS --video_cut_queue (prioridade)--> worker video_cut
+//  Projects-MS --video_render_queue (prioridade)--> worker video_render (exportações)
 //  Projects-MS --video_prepare_queue (prioridade)--> worker video_render (pré-visualizações)
 //  workers --video_result_queue--> Projects-MS (processing/success/error/cancelled)
 //  Projects-MS --ws_queue--> ws_gateway --"video-task"--> browser do dono
@@ -12,7 +12,7 @@ const { serializeTask } = require("./video");
 const rabbit_url = `amqp://${process.env.RABBITMQ_USER}:${process.env.RABBITMQ_PASS}@${process.env.RABBITMQ_HOST}:${process.env.RABBITMQ_PORT}`;
 
 const EXCHANGE = "picturas";
-const CUT_QUEUE = "video_cut_queue";
+const RENDER_QUEUE = "video_render_queue";
 const PREPARE_QUEUE = "video_prepare_queue";
 const RESULT_QUEUE = "video_result_queue";
 const WS_QUEUE = "ws_queue";
@@ -29,7 +29,7 @@ async function getChannel() {
 
       const ch = await conn.createConfirmChannel();
       await ch.assertExchange(EXCHANGE, "direct", { durable: true });
-      for (const queue of [CUT_QUEUE, PREPARE_QUEUE]) {
+      for (const queue of [RENDER_QUEUE, PREPARE_QUEUE]) {
         await ch.assertQueue(queue, {
           durable: true,
           arguments: { "x-max-priority": MAX_PRIORITY },
@@ -83,24 +83,26 @@ async function send_video_prepare(msg_id, job, priority) {
   );
 }
 
-/** Publica o pedido de corte. */
-async function send_video_cut(msg_id, task, paths) {
-  const msg = {
-    messageId: msg_id,
-    timestamp: new Date().toISOString(),
-    procedure: "video_cut",
-    parameters: {
-      taskId: String(task._id),
-      inputVideoURI: paths.input,
-      outputVideoURI: paths.output,
-      workDir: paths.dir,
-      cancelFlagURI: paths.cancelFlag,
-      start: task.params.start,
-      end: task.params.end,
+/** Envia a receita de uma exportação ao worker de render. */
+async function send_video_render(msg_id, task, paths) {
+  await publish(
+    RENDER_QUEUE,
+    {
+      messageId: msg_id,
+      timestamp: new Date().toISOString(),
+      procedure: "video_render",
+      parameters: {
+        taskId: String(task._id),
+        inputs: paths.inputs,
+        output: task.params.output,
+        faixas: task.params.faixas,
+        outputVideoURI: paths.output,
+        workDir: paths.dir,
+        cancelFlagURI: paths.cancelFlag,
+      },
     },
-  };
-
-  await publish(CUT_QUEUE, msg, task.priority);
+    task.priority,
+  );
 }
 
 /** Consome os estados enviados pelo worker. `handler` é async. */
@@ -144,4 +146,4 @@ function send_video_task_update(task) {
   );
 }
 
-module.exports = { send_video_cut, send_video_prepare, read_video_results, send_video_task_update };
+module.exports = { send_video_render, send_video_prepare, read_video_results, send_video_task_update };

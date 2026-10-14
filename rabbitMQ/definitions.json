@@ -160,15 +160,6 @@
             "arguments": {}
         },
         {
-            "name": "video_cut_queue",
-            "vhost": "/",
-            "durable": true,
-            "auto_delete": false,
-            "arguments": {
-                "x-max-priority": 10
-            }
-        },
-        {
             "name": "video_render_queue",
             "vhost": "/",
             "durable": true,
@@ -363,14 +354,6 @@
             "destination": "ws_queue",
             "destination_type": "queue",
             "routing_key": "ws_queue",
-            "arguments": {}
-        },
-        {
-            "source": "picturas",
-            "vhost": "/",
-            "destination": "video_cut_queue",
-            "destination_type": "queue",
-            "routing_key": "video_cut_queue",
             "arguments": {}
         },
         {

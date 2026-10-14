@@ -1,9 +1,11 @@
-// Vídeos do projeto e tarefas de corte (UC-VID-001 - Eliminar segmento intermédio).
+// Vídeos do projeto, timeline do editor e tarefas de exportação.
 //
 // As tarefas de vídeo têm um fluxo próprio, fora do pipeline de ferramentas
-// das imagens: cada pedido de corte é uma tarefa assíncrona com estado
-// (Em Fila, A processar, Concluído, Falhou, Cancelado), processada pelo
-// worker `video_cut` através do RabbitMQ.
+// das imagens: cada exportação da timeline é uma tarefa assíncrona com
+// estado (Em Fila, A processar, Concluído, Falhou, Cancelado), renderizada
+// pelo worker `video_render` através do RabbitMQ. Os 5 casos de uso (corte,
+// velocidade, conversão, reenquadramento e concatenação) são operações na
+// timeline; só a exportação gera um vídeo novo.
 //
 // Nesta fase só o dono do projeto pode usar os vídeos (REQ-VID-CUT-026),
 // mesmo que o projeto esteja partilhado.
@@ -34,7 +36,7 @@ const {
 } = require("../utils/imageStorage");
 const V = require("../utils/video");
 const {
-  send_video_cut,
+  send_video_render,
   send_video_prepare,
   read_video_results,
   send_video_task_update,
@@ -66,14 +68,13 @@ function abs(relPath) {
   return path.join(APP_ROOT, relPath);
 }
 
-function taskPaths(taskId, format) {
+function taskPaths(taskId) {
   const dir = `${VIDEOS_REL}/tasks/${taskId}`;
-  return {
-    dir,
-    input: `${dir}/input.${format}`,
-    output: `${dir}/output.${format}`,
-    cancelFlag: `${dir}/cancel`,
-  };
+  return { dir, cancelFlag: `${dir}/cancel` };
+}
+
+function taskOutput(task) {
+  return `${taskPaths(task._id).dir}/output.${task.params.output.formato}`;
 }
 
 async function removeDir(relDir) {
@@ -89,7 +90,7 @@ function wrap(fn) {
   return (req, res, next) =>
     Promise.resolve(fn(req, res, next)).catch((err) => {
       console.error("[VIDEO] route error:", err);
-      if (!res.headersSent) fail(res, 500, "internal_error", "Ocorreu um erro inesperado. Tenta novamente.");
+      if (!res.headersSent) fail(res, 500, "internal_error", "An unexpected error occurred. Try again.");
     });
 }
 
@@ -175,16 +176,16 @@ async function refund(task) {
 function userMessage(code, fallback) {
   switch (code) {
     case "av_sync":
-      return "Foi detetada uma falha de sincronismo entre o áudio e o vídeo na junção. O vídeo original não foi alterado e a operação não foi contabilizada. Experimenta pontos de corte ligeiramente diferentes.";
+      return "An audio/video sync problem was detected in the result. Your videos were not changed and the operation was not counted. Try again, moving the cuts slightly if it happens again.";
     case "timeout":
-      return "O processamento excedeu o tempo máximo de 15 minutos. O vídeo original não foi alterado e a operação não foi contabilizada. Tenta novamente mais tarde.";
+      return "Processing took longer than the maximum time allowed. Your videos were not changed and the operation was not counted. Try again later.";
     case "invalid_input":
     case "invalid_output":
-      return "Não foi possível processar este vídeo. Confirma que o ficheiro não está corrompido e tenta novamente. A operação não foi contabilizada.";
+      return "These videos could not be processed. Make sure the files aren't corrupted and try again. The operation was not counted.";
     case "storage_error":
-      return fallback || "Não foi possível guardar o resultado. A operação não foi contabilizada. Tenta novamente.";
+      return fallback || "The result could not be saved. The operation was not counted. Try again.";
     default:
-      return "Ocorreu um erro inesperado ao processar o vídeo. A operação não foi contabilizada. Tenta novamente.";
+      return "An unexpected error occurred while processing the video. The operation was not counted. Try again.";
   }
 }
 
@@ -222,15 +223,15 @@ async function failTask(taskId, code, reason) {
 // Só o dono, sem links de partilha (REQ-VID-CUT-026)
 function requireVideoOwner(req, res, next) {
   const caller = getCallerId(req);
-  if (!caller) return fail(res, 401, "unauthenticated", "Tens de iniciar sessão.");
+  if (!caller) return fail(res, 401, "unauthenticated", "You need to sign in.");
 
   if (req.query.share || String(caller) !== String(req.params.user)) {
-    return fail(res, 403, "forbidden", "Só o dono do projeto pode usar as ferramentas de vídeo.");
+    return fail(res, 403, "forbidden", "Only the project owner can use the video tools.");
   }
 
   for (const p of ["user", "project", "video", "task"]) {
     if (req.params[p] !== undefined && !mongoose.isValidObjectId(req.params[p])) {
-      return fail(res, 404, "not_found", "Recurso não encontrado.");
+      return fail(res, 404, "not_found", "Not found.");
     }
   }
   next();
@@ -239,11 +240,11 @@ function requireVideoOwner(req, res, next) {
 async function loadProject(req, res, next) {
   try {
     const project = await Project.getOne(req.params.user, req.params.project);
-    if (!project) return fail(res, 404, "not_found", "Projeto não encontrado.");
+    if (!project) return fail(res, 404, "not_found", "Project not found.");
     req.project = project;
     next();
   } catch (_) {
-    return fail(res, 404, "not_found", "Projeto não encontrado.");
+    return fail(res, 404, "not_found", "Project not found.");
   }
 }
 
@@ -253,7 +254,7 @@ async function loadUserType(req, res, next) {
     req.userType = await getUserType(req.params.user);
   } catch (err) {
     console.error("[VIDEO] users-ms /type failed:", err.message);
-    return fail(res, 503, "users_unavailable", "Não foi possível validar a tua conta. Tenta novamente.");
+    return fail(res, 503, "users_unavailable", "Your account could not be checked. Try again.");
   }
   if (req.userType === "anonymous") return fail(res, 403, "anonymous", V.MESSAGES.anonymous);
   next();
@@ -273,7 +274,7 @@ router.get("/:user/:project/videos", guard, wrap(async (req, res) => {
 // Um vídeo (com URL nova, por exemplo para descarregar)
 router.get("/:user/:project/videos/:video", guard, wrap(async (req, res) => {
   const video = await Video.getOne(req.params.user, req.params.project, req.params.video);
-  if (!video) return fail(res, 404, "not_found", "Vídeo não encontrado.");
+  if (!video) return fail(res, 404, "not_found", "Video not found.");
   res.status(200).jsonp(await serialize(video));
 }));
 
@@ -286,16 +287,16 @@ router.post("/:user/:project/videos", guard, loadUserType, (req, res) => {
     if (err) {
       cleanup();
       if (err.code === "LIMIT_FILE_SIZE") return fail(res, 413, "too_large", V.MESSAGES.too_large);
-      return fail(res, 400, "bad_upload", "O envio do vídeo falhou. Tenta novamente.");
+      return fail(res, 400, "bad_upload", "The video upload failed. Try again.");
     }
 
-    if (!req.file) return fail(res, 400, "no_file", "Nenhum vídeo recebido.");
+    if (!req.file) return fail(res, 400, "no_file", "No video was received.");
 
     try {
       const name = decodeFileName(req.file.originalname);
 
       if (await Video.existsByName(req.params.user, req.params.project, name)) {
-        return fail(res, 409, "duplicate_name", "Este projeto já tem um vídeo com esse nome. Muda o nome do ficheiro e tenta novamente.");
+        return fail(res, 409, "duplicate_name", "This project already has a video with that name. Rename the file and try again.");
       }
 
       let probe;
@@ -339,7 +340,7 @@ router.post("/:user/:project/videos", guard, loadUserType, (req, res) => {
       return res.status(201).jsonp(await serialize(await Video.getById(video._id)));
     } catch (e) {
       console.error("[VIDEO] upload error:", e.message);
-      return fail(res, 500, "storage_error", "Não foi possível guardar o vídeo. Tenta novamente.");
+      return fail(res, 500, "storage_error", "The video could not be saved. Try again.");
     } finally {
       cleanup();
     }
@@ -349,10 +350,10 @@ router.post("/:user/:project/videos", guard, loadUserType, (req, res) => {
 // Remover um vídeo do projeto
 router.delete("/:user/:project/videos/:video", guard, wrap(async (req, res) => {
   const video = await Video.getOne(req.params.user, req.params.project, req.params.video);
-  if (!video) return fail(res, 404, "not_found", "Vídeo não encontrado.");
+  if (!video) return fail(res, 404, "not_found", "Video not found.");
 
   if ((await VideoTask.countActiveForVideo(video._id)) > 0) {
-    return fail(res, 409, "video_busy", "Este vídeo tem uma tarefa em curso. Cancela-a ou espera que termine.");
+    return fail(res, 409, "video_busy", "This video is used by an export in progress. Cancel it or wait for it to finish.");
   }
 
   if (await Timeline.usesVideo(req.params.user, req.params.project, video._id)) {
@@ -536,51 +537,63 @@ router.post("/:user/:project/timeline/redo", guard, historyStep("redo", "undo", 
 
 // ------------------------------------------------------------------- tarefas
 
-// Prepara o ficheiro no volume partilhado e envia o pedido ao worker.
-// Corre depois de responder ao cliente, para o pedido não ficar à espera
-// da cópia de um ficheiro grande.
-async function prepareAndQueue(task, video) {
-  const paths = taskPaths(task._id, video.format);
+// Copia os vídeos de origem para o volume partilhado e envia a receita ao
+// worker. Corre depois de responder ao cliente, para o pedido não ficar à
+// espera da cópia de ficheiros grandes.
+async function prepareAndQueue(task, videos) {
+  const paths = taskPaths(task._id);
 
   try {
     await fsp.mkdir(abs(paths.dir), { recursive: true });
 
-    await copyOriginal(video, abs(paths.input));
+    const inputs = {};
+    for (const video of videos) {
+      inputs[video._id] = `${paths.dir}/src_${video._id}.${video.format}`;
+      await copyOriginal(video, abs(inputs[video._id]));
 
-    // Pode ter sido cancelada enquanto o ficheiro era copiado
-    const fresh = await VideoTask.getById(task._id);
-    if (!fresh || fresh.state !== "queued") {
-      await removeDir(paths.dir);
-      return;
+      // Pode ter sido cancelada enquanto os ficheiros eram copiados
+      const fresh = await VideoTask.getById(task._id);
+      if (!fresh || fresh.state !== "queued") {
+        await removeDir(paths.dir);
+        return;
+      }
     }
 
     // msg_id só é gravado depois do envio: no arranque, "queued" sem msg_id
     // quer dizer que o pedido nunca chegou ao worker
-    const msg_id = `video-cut-${uuidv4()}`;
-    await send_video_cut(msg_id, fresh, paths);
+    const msg_id = `video-render-${uuidv4()}`;
+    await send_video_render(msg_id, task, { ...paths, inputs, output: taskOutput(task) });
     await VideoTask.setMsgId(task._id, msg_id);
   } catch (err) {
     await removeDir(paths.dir);
     await failTask(
       task._id,
       "storage_error",
-      `Não foi possível preparar o vídeo para processamento (${err.message}). A operação não foi contabilizada. Tenta novamente.`,
+      `The videos could not be prepared for processing (${err.message}). The operation was not counted. Try again.`,
     );
   }
 }
 
-// Pedir o corte: elimina [start, end] (segundos) e junta as partes
-router.post("/:user/:project/videos/:video/cut", guard, loadUserType, wrap(async (req, res) => {
-  const video = await Video.getOne(req.params.user, req.params.project, req.params.video);
-  if (!video) return fail(res, 404, "not_found", "Vídeo não encontrado.");
+// Exportar a timeline: cria uma tarefa de render com a receita da versão que
+// o editor tem. É a única operação de vídeo que gasta quota.
+router.post("/:user/:project/timeline/export", guard, loadUserType, wrap(async (req, res) => {
+  const timeline = await loadTimelineVersion(req, res);
+  if (!timeline) return;
 
-  const check = V.validateCut({
-    start: req.body?.start,
-    end: req.body?.end,
-    duration: video.duration,
+  // Os vídeos podem ter mudado desde a última gravação: validar outra vez
+  const videos = await Video.getAll(req.params.user, req.params.project);
+  const byId = new Map(videos.map((v) => [String(v._id), v]));
+  const check = V.validateTimeline(timeline, byId);
+  if (!check.ok) return fail(res, 422, check.code, check.message);
+
+  const sourceIds = [...new Set(check.timeline.faixas.flatMap((f) => f.clips.map((c) => c.video_id)))];
+  const limits = V.checkExportLimits({
+    duration: check.duration,
+    output: check.timeline.output,
+    sourceCount: sourceIds.length,
     userType: req.userType,
   });
-  if (!check.ok) return fail(res, check.status, check.code, check.message);
+  if (!limits.ok) return fail(res, limits.status, limits.code, limits.message);
 
   // Reserva 1 operação da quota diária (Premium não tem limite). É devolvida
   // se a tarefa falhar ou for cancelada (mecanismo já existente no users-ms).
@@ -594,19 +607,22 @@ router.post("/:user/:project/videos/:video/cut", guard, loadUserType, wrap(async
         return fail(res, 429, "quota_exceeded", V.MESSAGES.quota_exceeded);
       }
       console.error("[VIDEO] users-ms /process failed:", err.message);
-      return fail(res, 503, "users_unavailable", "Não foi possível validar a tua quota. Tenta novamente.");
+      return fail(res, 503, "users_unavailable", "Your daily operations could not be checked. Try again.");
     }
   }
+
+  // O resultado tem o nome do vídeo do primeiro clip
+  const firstClip = check.timeline.faixas.find((f) => f.tipo === "video").clips[0];
 
   let task;
   try {
     task = await VideoTask.create({
       user_id: req.params.user,
       project_id: req.params.project,
-      video_id: video._id,
-      video_name: video.name,
-      op: "cut",
-      params: { start: check.start, end: check.end },
+      video_ids: sourceIds,
+      name: byId.get(firstClip.video_id).name,
+      op: "render",
+      params: { output: check.timeline.output, faixas: check.timeline.faixas, duration: check.duration },
       state: "queued",
       priority: priorityFor(req.userType),
       charged_ops: charged,
@@ -614,13 +630,13 @@ router.post("/:user/:project/videos/:video/cut", guard, loadUserType, wrap(async
   } catch (err) {
     await refund({ _id: "-", user_id: req.params.user, charged_ops: charged });
     console.error("[VIDEO] could not create task:", err.message);
-    return fail(res, 500, "task_error", "Não foi possível criar a tarefa. A operação não foi contabilizada. Tenta novamente.");
+    return fail(res, 500, "task_error", "The export could not be created. The operation was not counted. Try again.");
   }
 
   send_video_task_update(task);
   res.status(201).jsonp(V.serializeTask(task));
 
-  prepareAndQueue(task, video);
+  prepareAndQueue(task, sourceIds.map((id) => byId.get(id)));
 }));
 
 // Tarefas de vídeo do projeto (mais recentes primeiro)
@@ -631,7 +647,7 @@ router.get("/:user/:project/video-tasks", guard, wrap(async (req, res) => {
 
 router.get("/:user/:project/video-tasks/:task", guard, wrap(async (req, res) => {
   const task = await VideoTask.getOne(req.params.user, req.params.project, req.params.task);
-  if (!task) return fail(res, 404, "not_found", "Tarefa não encontrada.");
+  if (!task) return fail(res, 404, "not_found", "Task not found.");
   res.status(200).jsonp(V.serializeTask(task));
 }));
 
@@ -646,8 +662,8 @@ router.delete("/:user/:project/video-tasks/:task", guard, wrap(async (req, res) 
 
   if (!task) {
     const existing = await VideoTask.getOne(req.params.user, req.params.project, req.params.task);
-    if (!existing) return fail(res, 404, "not_found", "Tarefa não encontrada.");
-    return fail(res, 409, "task_finished", "Esta tarefa já terminou e não pode ser cancelada.");
+    if (!existing) return fail(res, 404, "not_found", "Task not found.");
+    return fail(res, 409, "task_finished", "This task has already finished and can't be cancelled.");
   }
 
   // Sinal para o worker: se ainda está na fila é descartada quando chegar a
@@ -660,13 +676,12 @@ router.delete("/:user/:project/video-tasks/:task", guard, wrap(async (req, res) 
 
 // ------------------------------------------------- mensagens do worker
 
-async function completeTask(taskId, outputRel) {
+async function completeTask(taskId) {
   const task = await VideoTask.getById(taskId);
   if (!task || !ACTIVE_STATES.includes(task.state)) return;
 
-  const source = await Video.getOne(task.user_id, task.project_id, task.video_id);
-  const format = source?.format || V.extOf(outputRel);
-  const outAbs = abs(outputRel);
+  const format = task.params.output.formato;
+  const outAbs = abs(taskOutput(task));
 
   const probe = await V.ffprobe(outAbs).catch(() => null);
   const check = probe ? V.validateProbe(probe, `output.${format}`) : { ok: false };
@@ -676,22 +691,22 @@ async function completeTask(taskId, outputRel) {
   }
 
   const existing = (await Video.getAll(task.user_id, task.project_id)).map((v) => v.name);
-  const name = V.cutResultName(source?.name || task.video_name, existing);
+  const name = V.resultName(task.name, existing, format);
   const { size } = await fsp.stat(outAbs);
 
   const stored = await post_file(task.user_id, task.project_id, STORAGE_STAGE, outAbs, name, V.MIME_TYPES[format]);
   const storageKey = keyFromStorage(stored);
 
-  // Novo vídeo no projeto; o original fica intacto (REQ-VID-CUT-014)
+  // Novo vídeo no projeto; os originais ficam intactos
   const video = await Video.create({
     user_id: task.user_id,
     project_id: task.project_id,
     name,
     storage_key: storageKey,
     size,
-    source: "cut",
-    parent_video_id: task.video_id,
+    source: "render",
     task_id: task._id,
+    preview: { state: "pending" },
     ...check.meta,
   });
 
@@ -708,6 +723,9 @@ async function completeTask(taskId, outputRel) {
     return;
   }
 
+  // Pré-visualização do resultado: o ficheiro já está no volume partilhado
+  await queuePrepare(video, task.priority, outAbs);
+
   console.log(`[VIDEO] task done task=${taskId} video=${video._id}`);
   send_video_task_update(done);
 }
@@ -722,10 +740,10 @@ async function handleWorkerMessage(msg) {
   if (!task) {
     // A tarefa já não existe (o projeto foi apagado entretanto): só falta
     // apagar os ficheiros temporários que o worker deixou
-    await removeDir(taskPaths(taskId, "mp4").dir);
+    await removeDir(taskPaths(taskId).dir);
     return;
   }
-  const paths = taskPaths(task._id, V.extOf(msg?.output?.videoURI || "") || "mp4");
+  const paths = taskPaths(task._id);
 
   switch (msg.status) {
     case "processing": {
@@ -739,9 +757,9 @@ async function handleWorkerMessage(msg) {
 
     case "success":
       try {
-        await completeTask(taskId, msg.output?.videoURI);
+        await completeTask(taskId);
       } catch (err) {
-        await failTask(taskId, "storage_error", `Não foi possível guardar o resultado (${err.message}).`);
+        await failTask(taskId, "storage_error", `The result could not be saved (${err.message}). The operation was not counted. Try again.`);
       } finally {
         await removeDir(paths.dir);
       }
@@ -769,7 +787,7 @@ async function handleWorkerMessage(msg) {
 // ficarem "Em Fila" para sempre
 async function failUnsentTasks(bootTime) {
   for (const t of await VideoTask.getUnsent(bootTime)) {
-    await removeDir(taskPaths(t._id, "mp4").dir);
+    await removeDir(taskPaths(t._id).dir);
     await failTask(t._id, "unexpected", "O serviço reiniciou antes de enviar a tarefa ao worker");
   }
 }
@@ -794,8 +812,7 @@ function start_video_consumer() {
 // ou porque o projeto foi apagado)
 async function cancelTask(task) {
   try {
-    const video = await Video.getOne(task.user_id, task.project_id, task.video_id);
-    const paths = taskPaths(task._id, video?.format || "mp4");
+    const paths = taskPaths(task._id);
     await fsp.mkdir(abs(paths.dir), { recursive: true });
     await fsp.writeFile(abs(paths.cancelFlag), new Date().toISOString());
   } catch (err) {
@@ -806,7 +823,7 @@ async function cancelTask(task) {
 
 // Usado quando um projeto (ou a conta) é apagado
 async function deleteProjectVideos(userId, projectId) {
-  // cortes ainda em curso: cancelar (o worker para e a quota é devolvida)
+  // exportações ainda em curso: cancelar (o worker para e a quota é devolvida)
   for (const t of await VideoTask.getActiveForProject(userId, projectId)) {
     const cancelled = await VideoTask.transition(t._id, ACTIVE_STATES, {
       state: "cancelled",

@@ -1,4 +1,4 @@
-// Rotas de vídeo (UC-VID-001): reencaminha para o Projects-MS.
+// Rotas de vídeo (editor com timeline): reencaminha para o Projects-MS.
 //
 // Só o dono do projeto usa os vídeos (o Projects-MS volta a verificar).
 // O upload é passado em streaming: um vídeo pode ter até 2 GB e não pode
@@ -88,12 +88,6 @@ router.post(
   proxy("post", (req) => `/videos/${id("video")(req)}/preview`),
 );
 
-router.post(
-  "/:user/:project/videos/:video/cut",
-  auth.checkToken,
-  proxy("post", (req) => `/videos/${id("video")(req)}/cut`),
-);
-
 // Upload em streaming: o corpo multipart segue tal como chegou
 router.post("/:user/:project/videos", auth.checkToken, (req, res) => {
   const headers = {
@@ -136,6 +130,7 @@ router.get("/:user/:project/timeline", auth.checkToken, proxy("get", () => "/tim
 router.put("/:user/:project/timeline", auth.checkToken, proxy("put", () => "/timeline"));
 router.post("/:user/:project/timeline/undo", auth.checkToken, proxy("post", () => "/timeline/undo"));
 router.post("/:user/:project/timeline/redo", auth.checkToken, proxy("post", () => "/timeline/redo"));
+router.post("/:user/:project/timeline/export", auth.checkToken, proxy("post", () => "/timeline/export"));
 
 // ----------------------------------------------------------------- tarefas
 

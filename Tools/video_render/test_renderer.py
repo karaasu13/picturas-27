@@ -277,6 +277,24 @@ class RenderTests(unittest.TestCase):
         self.assertGreater(max_volume(dst, 5.2, 0.6), -30)  # o seno de "a" depois
         self.assertAlmostEqual(float(stream(info, "audio")["duration"]), pos, delta=0.05)
 
+    # ------------------------------------------------- conversão de formato
+
+    def test_mov_hevc_exported_to_avi_becomes_h264_mp3(self):
+        # UC-003: ao mudar de formato o vídeo passa a H.264; nunca HEVC em AVI
+        src, dst = self._path("conv.mov"), self._path("conv_out.avi")
+        make_video(src, seconds=4, codec="libx265")
+        c = clip(0, 4, 0)
+        result = render(recipe([c], [dict(c)], formato="avi"), {"src": src}, dst)
+        info = self._check(result, dst, 4.0)
+        self.assertEqual(info["format"]["format_name"], "avi")
+        self.assertEqual(stream(info, "video")["codec_name"], "h264")
+        self.assertEqual(stream(info, "audio")["codec_name"], "mp3")
+
+        # Mesmo formato (MOV -> MOV): mantém o HEVC da origem
+        same = self._path("conv_same.mov")
+        render(recipe([c], [dict(c)], formato="mov"), {"src": src}, same)
+        self.assertEqual(stream(probe(same), "video")["codec_name"], "hevc")
+
     # -------------------------------------------------- reenquadramento
 
     def test_reframe_pad_and_crop(self):

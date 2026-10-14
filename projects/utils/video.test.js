@@ -1,7 +1,7 @@
 // Testes das regras puras de vídeo. Sem dependências: `npm test`.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { validateTimeline } = require("./video");
+const { checkExportLimits, validateTimeline } = require("./video");
 
 const videos = new Map([
   ["a", { _id: "a", name: "a.mp4", duration: 10, has_audio: true }],
@@ -96,4 +96,55 @@ test("rejects malformed tracks and links", () => {
   assert.match(message({ output, faixas: [] }), /tracks/);
   assert.match(message({ output, faixas: [{ tipo: "subtitles", clips: [] }] }), /track/);
   assert.match(message(timeline([clip({ link_id: "" })], [])), /link/);
+});
+
+test("rejects more than one video or audio track", () => {
+  const two = (tipo) => ({ output, faixas: [{ tipo, clips: [] }, { tipo, clips: [] }] });
+  assert.match(message(two("video")), /only one video track and one audio track/);
+  assert.match(message(two("audio")), /only one video track and one audio track/);
+  assert.equal(validateTimeline({ output, faixas: [{ tipo: "video", clips: [] }] }, videos).ok, true);
+});
+
+// ------------------------------------------------------- limites da exportação
+
+const limits = (over = {}) =>
+  checkExportLimits({ duration: 60, output: { largura: 1920, altura: 1080 }, sourceCount: 1, userType: "free", ...over });
+const size = (largura, altura) => ({ output: { largura, altura } });
+const code = (r) => (r.ok ? "ok" : r.code);
+
+test("export: anonymous users and empty timelines are refused", () => {
+  assert.deepEqual([limits({ userType: "anonymous" }).status, code(limits({ userType: "anonymous" }))], [403, "anonymous"]);
+  assert.equal(code(limits({ duration: 0 })), "empty_timeline");
+});
+
+test("export: the result must last at least 5 s (both plans)", () => {
+  for (const userType of ["free", "premium"]) {
+    assert.equal(code(limits({ userType, duration: 4.999 })), "result_too_short");
+    assert.equal(code(limits({ userType, duration: 5 })), "ok");
+  }
+});
+
+test("export: registered accounts up to 10 min of final duration, premium without limit", () => {
+  assert.equal(code(limits({ duration: 600 })), "ok");
+  assert.equal(code(limits({ duration: 600.001 })), "duration_limit");
+  assert.equal(code(limits({ userType: "premium", duration: 4 * 3600 })), "ok");
+});
+
+test("export: registered accounts up to 1080p in any orientation, premium up to 4096", () => {
+  assert.equal(code(limits(size(1920, 1080))), "ok");
+  assert.equal(code(limits(size(1080, 1920))), "ok");
+  assert.equal(code(limits(size(1920, 1088))), "resolution_limit");
+  assert.equal(code(limits(size(2560, 1440))), "resolution_limit");
+  assert.match(limits(size(2560, 1440)).message, /1080p/);
+  assert.equal(code(limits({ userType: "premium", ...size(4096, 2160) })), "ok");
+  assert.equal(code(limits({ userType: "premium", ...size(4096, 4096) })), "ok");
+});
+
+test("export: up to 5 source videos for registered accounts and 20 for premium", () => {
+  assert.equal(code(limits({ sourceCount: 5 })), "ok");
+  assert.equal(code(limits({ sourceCount: 6 })), "too_many_sources");
+  assert.match(limits({ sourceCount: 6 }).message, /up to 5/);
+  assert.equal(code(limits({ userType: "premium", sourceCount: 20 })), "ok");
+  assert.equal(code(limits({ userType: "premium", sourceCount: 21 })), "too_many_sources");
+  assert.match(limits({ userType: "premium", sourceCount: 21 }).message, /up to 20/);
 });

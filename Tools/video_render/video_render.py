@@ -28,7 +28,7 @@ import time
 import pika
 
 from preview import make_preview
-from renderer import RenderCancelled, RenderError, render
+from renderer import RenderCancelled, RenderError, recipe_duration, render, timeout_for
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
@@ -122,13 +122,17 @@ class VideoWorker:
         if is_cancelled():
             raise RenderCancelled()
 
+        recipe = {"output": params["output"], "faixas": params["faixas"]}
+        timeout_s = timeout_for(recipe_duration(recipe))
         self._send(req, "processing")
+        log("render", **req["ids"], duration=recipe_duration(recipe), timeout=timeout_s)
         result = render(
-            {"output": params["output"], "faixas": params["faixas"]},
+            recipe,
             params["inputs"],
             output_path,
             is_cancelled=is_cancelled,
             sleep=self._connection.sleep,
+            timeout_s=timeout_s,
         )
 
         # Cancelado mesmo no fim: não vale a pena entregar o resultado

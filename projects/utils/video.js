@@ -1,4 +1,4 @@
-// Regras e utilitários de vídeo (UC-VID-001 e REQ-VID-PLAT-001).
+// Regras e utilitários de vídeo (editor com timeline e REQ-VID-PLAT-001).
 // As funções de validação são puras para poderem ser testadas sem Docker.
 
 const { execFile } = require("child_process");
@@ -7,12 +7,17 @@ const path = require("path");
 const LIMITS = {
   // REQ-VID-PLAT-001: até 2 GB
   maxUploadBytes: Number(process.env.VIDEO_MAX_UPLOAD_BYTES) || 2 * 1024 * 1024 * 1024,
-  // Perfil Registado: vídeos até 10 min (Premium sem limite)
+  // Perfil Registado: exportações até 10 min (Premium sem limite)
   freeMaxDuration: Number(process.env.VIDEO_FREE_MAX_DURATION) || 10 * 60,
-  // O intervalo eliminado tem de durar mais de 1 s
-  minCut: 1,
-  // O vídeo resultante tem de ter pelo menos 5 s
+  // O vídeo exportado tem de ter pelo menos 5 s
   minResult: 5,
+};
+
+// Limites da exportação por perfil: resolução do output (lado maior x lado
+// menor) e n.º de vídeos de origem diferentes
+const EXPORT_LIMITS = {
+  free: { maxDuration: LIMITS.freeMaxDuration, maxLong: 1920, maxShort: 1080, maxSources: 5 },
+  premium: { maxDuration: Infinity, maxLong: 4096, maxShort: 4096, maxSources: 20 },
 };
 
 // Extensão -> nomes que o ffprobe usa para o contentor
@@ -31,20 +36,22 @@ const MIME_TYPES = {
 };
 
 const MESSAGES = {
-  unsupported_format:
-    "Formato não suportado. Só são aceites vídeos MP4, MOV ou AVI codificados em H.264 ou H.265.",
-  unreadable:
-    "Não foi possível ler o vídeo. Confirma que o ficheiro não está corrompido e tenta novamente.",
-  too_large: "O vídeo excede o tamanho máximo de 2 GB. Reduz o tamanho do ficheiro e tenta novamente.",
-  invalid_interval:
-    "O intervalo a eliminar deve ser interior ao vídeo e ter uma duração superior a 1 segundo.",
-  result_too_short:
-    "O vídeo resultante é demasiado curto. O resultado final deve ter pelo menos 5 segundos.",
+  unsupported_format: "Unsupported format. Only MP4, MOV or AVI videos encoded in H.264 or H.265 are accepted.",
+  unreadable: "The video could not be read. Make sure the file isn't corrupted and try again.",
+  too_large: "The video is larger than the 2 GB limit. Reduce the file size and try again.",
+  empty_timeline: "Add at least one video clip to the timeline before exporting.",
+  result_too_short: "The exported video is too short. The final result must be at least 5 seconds long.",
   duration_limit:
-    "O perfil Registado só permite editar vídeos até 10 minutos. Escolhe um vídeo mais curto ou faz upgrade para Premium.",
+    "Registered accounts can export videos up to 10 minutes long. Shorten the timeline or upgrade to Premium.",
+  resolution_limit:
+    "Registered accounts can export up to 1080p (1920×1080). Choose a lower resolution or upgrade to Premium.",
+  too_many_sources_free:
+    "Registered accounts can use up to 5 different videos in one export. Remove clips from some videos or upgrade to Premium.",
+  too_many_sources_premium:
+    "An export can use up to 20 different videos. Remove clips from some videos and try again.",
   quota_exceeded:
-    "Atingiu o limite de 5 operações diárias do perfil gratuito. Efetue upgrade para Premium para continuar.",
-  anonymous: "Os utilizadores anónimos não têm acesso às ferramentas de vídeo. Cria uma conta para continuar.",
+    "You have reached the limit of 5 daily operations of the free plan. Upgrade to Premium to continue.",
+  anonymous: "Anonymous users don't have access to the video tools. Create an account to continue.",
 };
 
 function extOf(fileName) {
@@ -104,42 +111,6 @@ function validateProbe(probe, originalName) {
   };
 }
 
-/**
- * Valida o pedido de corte (passo 3 e exceções 1-2 do UC-VID-001) e o
- * limite de duração do perfil. Os instantes são em segundos.
- */
-function validateCut({ start, end, duration, userType }) {
-  const s = Number(start);
-  const e = Number(end);
-  const d = Number(duration);
-
-  if (userType === "anonymous") {
-    return { ok: false, status: 403, code: "anonymous", message: MESSAGES.anonymous };
-  }
-
-  if (userType !== "premium" && d > LIMITS.freeMaxDuration) {
-    return { ok: false, status: 422, code: "duration_limit", message: MESSAGES.duration_limit };
-  }
-
-  // Interior ao vídeo (não pode começar no 0 nem acabar no fim) e > 1 s
-  if (
-    !Number.isFinite(s) ||
-    !Number.isFinite(e) ||
-    s <= 0 ||
-    e >= d ||
-    e - s <= LIMITS.minCut
-  ) {
-    return { ok: false, status: 422, code: "invalid_interval", message: MESSAGES.invalid_interval };
-  }
-
-  if (d - (e - s) < LIMITS.minResult) {
-    return { ok: false, status: 422, code: "result_too_short", message: MESSAGES.result_too_short };
-  }
-
-  // Precisão ao milissegundo, como no campo hh:mm:ss.mmm
-  return { ok: true, start: Math.round(s * 1000) / 1000, end: Math.round(e * 1000) / 1000 };
-}
-
 // ------------------------------------------------------------- timeline
 
 const TIMELINE = {
@@ -151,7 +122,6 @@ const TIMELINE = {
   minSide: 16,
   maxSide: 4096,
   // limita o tamanho do documento (o histórico guarda até 50 cópias)
-  maxTracks: 8,
   maxClips: 500,
 };
 
@@ -191,8 +161,12 @@ function validateTimeline(body, videosById) {
     }
   }
 
-  if (!Array.isArray(body.faixas) || body.faixas.length === 0 || body.faixas.length > TIMELINE.maxTracks) {
-    return bad("Invalid timeline tracks.");
+  if (!Array.isArray(body.faixas) || body.faixas.length === 0) return bad("Invalid timeline tracks.");
+  // O render junta uma faixa de vídeo com uma de áudio (sem sobreposição de imagens nem mistura)
+  for (const tipo of TIMELINE.trackTypes) {
+    if (body.faixas.filter((f) => f?.tipo === tipo).length > 1) {
+      return bad("The timeline can have only one video track and one audio track.");
+    }
   }
 
   const faixas = [];
@@ -262,13 +236,38 @@ function serializeTimeline(t) {
   };
 }
 
-/** Nome para o resultado de um corte que não colide com os existentes. */
-function cutResultName(originalName, existingNames) {
-  const ext = path.extname(originalName);
-  const base = path.basename(originalName, ext);
+/**
+ * Limites da exportação para o perfil (o anónimo não exporta). `duration` é
+ * a duração final e `sourceCount` o n.º de vídeos de origem diferentes.
+ * Devolve { ok: true } ou { ok: false, status, code, message }.
+ */
+function checkExportLimits({ duration, output, sourceCount, userType }) {
+  const no = (status, code, message = MESSAGES[code]) => ({ ok: false, status, code, message });
+
+  if (userType === "anonymous") return no(403, "anonymous");
+  if (!(duration > 0)) return no(422, "empty_timeline");
+  if (duration < LIMITS.minResult) return no(422, "result_too_short");
+
+  const premium = userType === "premium";
+  const limits = premium ? EXPORT_LIMITS.premium : EXPORT_LIMITS.free;
+  if (duration > limits.maxDuration) return no(422, "duration_limit");
+
+  const long = Math.max(output.largura, output.altura);
+  const short = Math.min(output.largura, output.altura);
+  if (long > limits.maxLong || short > limits.maxShort) return no(422, "resolution_limit");
+
+  if (sourceCount > limits.maxSources) {
+    return no(422, "too_many_sources", MESSAGES[premium ? "too_many_sources_premium" : "too_many_sources_free"]);
+  }
+  return { ok: true };
+}
+
+/** Nome do vídeo exportado ("<origem>_edit.<formato>") que não colide com os existentes. */
+function resultName(sourceName, existingNames, format) {
+  const base = path.basename(sourceName, path.extname(sourceName));
   const taken = new Set(existingNames);
   for (let i = 1; ; i++) {
-    const name = `${base}_corte${i > 1 ? `_${i}` : ""}${ext}`;
+    const name = `${base}_edit${i > 1 ? `_${i}` : ""}.${format}`;
     if (!taken.has(name)) return name;
   }
 }
@@ -324,10 +323,11 @@ function serializeTask(task) {
   return {
     _id: task._id,
     projectId: task.project_id,
-    videoId: task.video_id,
-    videoName: task.video_name,
+    videoIds: task.video_ids,
+    name: task.name,
     op: task.op,
-    params: { start: task.params.start, end: task.params.end },
+    // a receita completa fica só no servidor; o cliente mostra o resumo
+    params: { output: task.params?.output ?? null, duration: task.params?.duration ?? null },
     state: task.state,
     outputVideoId: task.output_video_id,
     error: task.error_code ? { code: task.error_code, message: task.error_msg } : null,
@@ -345,10 +345,10 @@ module.exports = {
   extOf,
   parseFps,
   validateProbe,
-  validateCut,
   validateTimeline,
   timelineDuration,
-  cutResultName,
+  checkExportLimits,
+  resultName,
   ffprobe,
   serializeVideo,
   serializeTask,
