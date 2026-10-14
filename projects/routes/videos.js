@@ -23,6 +23,7 @@ const { v4: uuidv4 } = require("uuid");
 const Project = require("../controllers/project");
 const Video = require("../controllers/video");
 const VideoTask = require("../controllers/videoTask");
+const Timeline = require("../controllers/timeline");
 const { ACTIVE_STATES } = require("../models/videoTask");
 const { getCallerId } = require("../utils/caller");
 const {
@@ -317,12 +318,85 @@ router.delete("/:user/:project/videos/:video", guard, wrap(async (req, res) => {
     return fail(res, 409, "video_busy", "Este vídeo tem uma tarefa em curso. Cancela-a ou espera que termine.");
   }
 
+  if (await Timeline.usesVideo(req.params.user, req.params.project, video._id)) {
+    return fail(
+      res,
+      409,
+      "video_in_timeline",
+      `"${video.name}" is being used in the timeline. Remove its clips from the timeline before deleting the video.`,
+    );
+  }
+
   await delete_image(video.user_id, video.project_id, STORAGE_STAGE, video.storage_key).catch((e) =>
     console.error("[VIDEO] storage delete failed:", e.message),
   );
   await Video.delete(req.params.user, req.params.project, video._id);
+  await Timeline.forgetVideo(req.params.user, req.params.project, video._id);
   res.sendStatus(204);
 }));
+
+// ------------------------------------------------------------------ timeline
+//
+// Editar a timeline não gera ficheiros nem gasta quota. Cada alteração leva a
+// versão que o editor tem (controlo de concorrência, como nos projetos): se
+// outra janela gravou entretanto, a resposta é 409 com a versão do servidor.
+
+function versionConflict(res, timeline) {
+  return res.status(409).jsonp({
+    code: "version_conflict",
+    message: "The timeline was changed in another window. It has been reloaded with the latest version.",
+    serverVersion: timeline?.version ?? null,
+  });
+}
+
+// Lê a versão do corpo e a timeline atual; responde logo se não baterem certo
+async function loadTimelineVersion(req, res) {
+  const expected = req.body?.version;
+  if (!Number.isInteger(expected)) {
+    fail(res, 428, "missing_version", "Missing timeline version.");
+    return null;
+  }
+  const current = await Timeline.get(req.params.user, req.params.project);
+  if (current.version !== expected) {
+    versionConflict(res, current);
+    return null;
+  }
+  return current;
+}
+
+router.get("/:user/:project/timeline", guard, wrap(async (req, res) => {
+  const timeline = await Timeline.get(req.params.user, req.params.project);
+  res.status(200).jsonp(V.serializeTimeline(timeline));
+}));
+
+router.put("/:user/:project/timeline", guard, wrap(async (req, res) => {
+  const current = await loadTimelineVersion(req, res);
+  if (!current) return;
+
+  const videos = await Video.getAll(req.params.user, req.params.project);
+  const check = V.validateTimeline(req.body, new Map(videos.map((v) => [String(v._id), v])));
+  if (!check.ok) return fail(res, 422, check.code, check.message);
+
+  const updated = await Timeline.saveIfVersion(current, check.timeline);
+  if (!updated) return versionConflict(res, await Timeline.get(req.params.user, req.params.project));
+  res.status(200).jsonp(V.serializeTimeline(updated));
+}));
+
+// Desfazer (undo -> redo) e refazer (redo -> undo)
+function historyStep(from, to, emptyMessage) {
+  return wrap(async (req, res) => {
+    const current = await loadTimelineVersion(req, res);
+    if (!current) return;
+    if (current[from].length === 0) return fail(res, 409, `nothing_to_${from}`, emptyMessage);
+
+    const updated = await Timeline.step(current, from, to);
+    if (!updated) return versionConflict(res, await Timeline.get(req.params.user, req.params.project));
+    res.status(200).jsonp(V.serializeTimeline(updated));
+  });
+}
+
+router.post("/:user/:project/timeline/undo", guard, historyStep("undo", "redo", "There is nothing to undo."));
+router.post("/:user/:project/timeline/redo", guard, historyStep("redo", "undo", "There is nothing to redo."));
 
 // ------------------------------------------------------------------- tarefas
 
@@ -608,6 +682,7 @@ async function deleteProjectVideos(userId, projectId) {
   }
   await Video.deleteAllFromProject(userId, projectId);
   await VideoTask.deleteAllFromProject(userId, projectId);
+  await Timeline.deleteForProject(userId, projectId);
 }
 
 module.exports = { router, start_video_consumer, deleteProjectVideos };

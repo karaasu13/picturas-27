@@ -54,7 +54,7 @@ function proxy(method, suffix) {
     axios({
       method,
       url: projectsURL + upstreamPath(req, suffix(req)),
-      data: method === "post" ? req.body : undefined,
+      data: method === "post" || method === "put" ? req.body : undefined,
       httpsAgent,
       headers: upstreamHeaders(req),
     })
@@ -122,6 +122,13 @@ router.post("/:user/:project/videos", auth.checkToken, (req, res) => {
 
   req.pipe(upstream);
 });
+
+// ---------------------------------------------------------------- timeline
+
+router.get("/:user/:project/timeline", auth.checkToken, proxy("get", () => "/timeline"));
+router.put("/:user/:project/timeline", auth.checkToken, proxy("put", () => "/timeline"));
+router.post("/:user/:project/timeline/undo", auth.checkToken, proxy("post", () => "/timeline/undo"));
+router.post("/:user/:project/timeline/redo", auth.checkToken, proxy("post", () => "/timeline/redo"));
 
 // ----------------------------------------------------------------- tarefas
 
