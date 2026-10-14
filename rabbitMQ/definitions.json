@@ -169,6 +169,24 @@
             }
         },
         {
+            "name": "video_render_queue",
+            "vhost": "/",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-max-priority": 10
+            }
+        },
+        {
+            "name": "video_prepare_queue",
+            "vhost": "/",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-max-priority": 10
+            }
+        },
+        {
             "name": "video_result_queue",
             "vhost": "/",
             "durable": true,
@@ -353,6 +371,22 @@
             "destination": "video_cut_queue",
             "destination_type": "queue",
             "routing_key": "video_cut_queue",
+            "arguments": {}
+        },
+        {
+            "source": "picturas",
+            "vhost": "/",
+            "destination": "video_render_queue",
+            "destination_type": "queue",
+            "routing_key": "video_render_queue",
+            "arguments": {}
+        },
+        {
+            "source": "picturas",
+            "vhost": "/",
+            "destination": "video_prepare_queue",
+            "destination_type": "queue",
+            "routing_key": "video_prepare_queue",
             "arguments": {}
         },
         {

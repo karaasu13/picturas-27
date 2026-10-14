@@ -81,6 +81,13 @@ router.delete(
   proxy("delete", (req) => `/videos/${id("video")(req)}`),
 );
 
+// Gerar de novo a pré-visualização (proxy, miniaturas, forma de onda)
+router.post(
+  "/:user/:project/videos/:video/preview",
+  auth.checkToken,
+  proxy("post", (req) => `/videos/${id("video")(req)}/preview`),
+);
+
 router.post(
   "/:user/:project/videos/:video/cut",
   auth.checkToken,

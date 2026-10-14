@@ -25,6 +25,23 @@ const videoSchema = new mongoose.Schema(
     source: { type: String, enum: ["upload", "cut"], default: "upload" },
     parent_video_id: { type: mongoose.Schema.Types.ObjectId, default: null },
     task_id: { type: mongoose.Schema.Types.ObjectId, default: null },
+
+    // Pré-visualização gerada pelo worker (proxy H.264 480p, sprite de
+    // miniaturas e forma de onda), guardada no storage ao lado do original.
+    // Sem estado: vídeo enviado antes de existirem pré-visualizações.
+    preview: {
+      state: { type: String, enum: ["pending", "ready", "failed"] },
+      proxy_key: { type: String },
+      sprite_key: { type: String },
+      waveform_key: { type: String }, // null quando o vídeo não tem áudio
+      sprite: {
+        interval: Number, // segundos entre miniaturas
+        cols: Number,
+        count: Number,
+        width: Number, // tamanho de cada miniatura
+        height: Number,
+      },
+    },
   },
   { timestamps: true },
 );

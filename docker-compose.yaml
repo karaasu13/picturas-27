@@ -462,6 +462,53 @@ services:
     cpus: 2.0
     mem_limit: 4g
 
+  # Editor de vídeo: o mesmo worker em duas filas, para as pré-visualizações
+  # (proxy, sprite, forma de onda) nunca ficarem à espera de um render longo
+  video_render_tool:
+    build:
+      context: ./Tools
+      dockerfile: video_render/Dockerfile
+    restart: on-failure
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - image_data:/app/images
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=user
+      - RABBITMQ_PASS=password
+      - VIDEO_QUEUE=video_render_queue
+      # mínimo; vídeos longos têm 2x a duração final
+      - VIDEO_TASK_TIMEOUT=900
+    cpus: 2.0
+    mem_limit: 4g
+
+  video_prepare_tool:
+    build:
+      context: ./Tools
+      dockerfile: video_render/Dockerfile
+    restart: on-failure
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - image_data:/app/images
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=user
+      - RABBITMQ_PASS=password
+      - VIDEO_QUEUE=video_prepare_queue
+      - VIDEO_TASK_TIMEOUT=900
+    cpus: 1.0
+    mem_limit: 2g
+
   watermark_tool_ms:
     image: prcsousa/picturas-watermark-tool-ms:latest
     restart: always

@@ -291,7 +291,8 @@ function ffprobe(filePath) {
   });
 }
 
-function serializeVideo(video, url = null) {
+function serializeVideo(video, url = null, previewUrls = {}) {
+  const p = video.preview || {};
   return {
     _id: video._id,
     name: video.name,
@@ -307,6 +308,15 @@ function serializeVideo(video, url = null) {
     parentVideoId: video.parent_video_id,
     createdAt: video.createdAt,
     url,
+    preview: {
+      state: p.state || "missing",
+      proxyUrl: previewUrls.proxyUrl ?? null,
+      spriteUrl: previewUrls.spriteUrl ?? null,
+      waveformUrl: previewUrls.waveformUrl ?? null,
+      sprite: p.sprite?.cols
+        ? { interval: p.sprite.interval, cols: p.sprite.cols, count: p.sprite.count, width: p.sprite.width, height: p.sprite.height }
+        : null,
+    },
   };
 }
 

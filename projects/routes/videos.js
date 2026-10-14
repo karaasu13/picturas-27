@@ -35,6 +35,7 @@ const {
 const V = require("../utils/video");
 const {
   send_video_cut,
+  send_video_prepare,
   read_video_results,
   send_video_task_update,
 } = require("../utils/video_msg");
@@ -105,18 +106,50 @@ function decodeFileName(name) {
   }
 }
 
-async function publicUrl(video) {
+async function publicUrl(video, key = video.storage_key) {
+  if (!key) return null;
   try {
-    const resp = await get_image_public_url(
-      video.user_id,
-      video.project_id,
-      STORAGE_STAGE,
-      video.storage_key,
-    );
+    const resp = await get_image_public_url(video.user_id, video.project_id, STORAGE_STAGE, key);
     return resp.data.url;
   } catch (_) {
     return null;
   }
+}
+
+// Vídeo para o cliente, com URLs novas do original e da pré-visualização
+async function serialize(video) {
+  const p = video.preview || {};
+  const ready = p.state === "ready";
+  const [url, proxyUrl, spriteUrl, waveformUrl] = await Promise.all([
+    publicUrl(video),
+    ready ? publicUrl(video, p.proxy_key) : null,
+    ready ? publicUrl(video, p.sprite_key) : null,
+    ready ? publicUrl(video, p.waveform_key) : null,
+  ]);
+  return V.serializeVideo(video, url, { proxyUrl, spriteUrl, waveformUrl });
+}
+
+// Original e ficheiros de pré-visualização no storage
+async function deleteVideoFiles(video) {
+  const p = video.preview || {};
+  for (const key of [video.storage_key, p.proxy_key, p.sprite_key, p.waveform_key]) {
+    if (!key) continue;
+    await delete_image(video.user_id, video.project_id, STORAGE_STAGE, key).catch((e) =>
+      console.error("[VIDEO] storage delete failed:", e.message),
+    );
+  }
+}
+
+// Premium primeiro na fila (REQ-VID-CUT-009)
+function priorityFor(userType) {
+  return userType === "premium" ? 5 : 1;
+}
+
+// Copia o original do storage para o volume partilhado com o worker
+async function copyOriginal(video, destAbs) {
+  const urlResp = await get_image_internal_url(video.user_id, video.project_id, STORAGE_STAGE, video.storage_key);
+  const file = await axios.get(urlResp.data.url, { responseType: "stream" });
+  await pipeline(file.data, fs.createWriteStream(destAbs));
 }
 
 async function getUserType(userId) {
@@ -233,7 +266,7 @@ const guard = [requireVideoOwner, loadProject];
 // Listar os vídeos do projeto
 router.get("/:user/:project/videos", guard, wrap(async (req, res) => {
   const videos = await Video.getAll(req.params.user, req.params.project);
-  const out = await Promise.all(videos.map(async (v) => V.serializeVideo(v, await publicUrl(v))));
+  const out = await Promise.all(videos.map(serialize));
   res.status(200).jsonp(out);
 }));
 
@@ -241,7 +274,7 @@ router.get("/:user/:project/videos", guard, wrap(async (req, res) => {
 router.get("/:user/:project/videos/:video", guard, wrap(async (req, res) => {
   const video = await Video.getOne(req.params.user, req.params.project, req.params.video);
   if (!video) return fail(res, 404, "not_found", "Vídeo não encontrado.");
-  res.status(200).jsonp(V.serializeVideo(video, await publicUrl(video)));
+  res.status(200).jsonp(await serialize(video));
 }));
 
 // Enviar um vídeo (REQ-VID-PLAT-001: MP4/MOV/AVI, H.264/H.265, até 2 GB)
@@ -294,12 +327,16 @@ router.post("/:user/:project/videos", guard, loadUserType, (req, res) => {
         storage_key: keyFromStorage(stored),
         size: req.file.size,
         source: "upload",
+        preview: { state: "pending" },
         ...check.meta,
       });
 
       console.log(`[VIDEO] upload user=${req.params.user} project=${req.params.project} video=${video._id} ${check.meta.format} ${check.meta.duration}s`);
 
-      return res.status(201).jsonp(V.serializeVideo(video, await publicUrl(video)));
+      // O ficheiro já está no volume partilhado: passa diretamente ao worker
+      await queuePrepare(video, priorityFor(req.userType), tmpPath);
+
+      return res.status(201).jsonp(await serialize(await Video.getById(video._id)));
     } catch (e) {
       console.error("[VIDEO] upload error:", e.message);
       return fail(res, 500, "storage_error", "Não foi possível guardar o vídeo. Tenta novamente.");
@@ -327,13 +364,112 @@ router.delete("/:user/:project/videos/:video", guard, wrap(async (req, res) => {
     );
   }
 
-  await delete_image(video.user_id, video.project_id, STORAGE_STAGE, video.storage_key).catch((e) =>
-    console.error("[VIDEO] storage delete failed:", e.message),
-  );
+  await deleteVideoFiles(video);
   await Video.delete(req.params.user, req.params.project, video._id);
   await Timeline.forgetVideo(req.params.user, req.params.project, video._id);
   res.sendStatus(204);
 }));
+
+// ---------------------------------------------------------- pré-visualização
+//
+// No upload (e no fim de cada exportação) o worker gera um proxy H.264 480p,
+// um sprite de miniaturas e a forma de onda. O editor só usa estes ficheiros
+// para pré-visualizar; a exportação usa sempre o original.
+
+// Pasta própria por pedido: um pedido repetido (arranque, Retry) nunca
+// escreve por cima dos ficheiros que o worker ainda esteja a ler
+function prepPaths(videoId, jobId) {
+  const dir = `${VIDEOS_REL}/tasks/prep-${videoId}-${jobId}`;
+  return {
+    dir,
+    input: `${dir}/input`,
+    proxy: `${dir}/proxy.mp4`,
+    sprite: `${dir}/sprite.jpg`,
+    waveform: `${dir}/waveform.json`,
+  };
+}
+
+/**
+ * Pede ao worker a pré-visualização de um vídeo. `srcAbs` é um ficheiro que
+ * já está no volume partilhado (upload ou resultado de um render) e é movido;
+ * sem ele, o original é copiado do storage.
+ */
+async function queuePrepare(video, priority = 1, srcAbs = null) {
+  const jobId = uuidv4();
+  const paths = prepPaths(video._id, jobId);
+  try {
+    await fsp.mkdir(abs(paths.dir), { recursive: true });
+    if (srcAbs) await fsp.rename(srcAbs, abs(paths.input));
+    else await copyOriginal(video, abs(paths.input));
+
+    await Video.updatePreview(video._id, { state: "pending" });
+    await send_video_prepare(`video-prepare-${jobId}`, { videoId: String(video._id), jobId, ...paths }, priority);
+  } catch (err) {
+    console.error(`[VIDEO] could not queue preview video=${video._id}:`, err.message);
+    await removeDir(paths.dir);
+    await Video.updatePreview(video._id, { state: "failed" });
+  }
+}
+
+// Gerar de novo: a anterior falhou, ou o vídeo é de antes das pré-visualizações
+router.post("/:user/:project/videos/:video/preview", guard, loadUserType, wrap(async (req, res) => {
+  const video = await Video.getOne(req.params.user, req.params.project, req.params.video);
+  if (!video) return fail(res, 404, "not_found", "Video not found.");
+
+  const state = video.preview?.state;
+  if (state === "pending") return fail(res, 409, "preview_pending", "The preview is already being prepared.");
+  if (state === "ready") return fail(res, 409, "preview_ready", "The preview is already available.");
+
+  const updated = await Video.updatePreview(video._id, { state: "pending" });
+  res.status(202).jsonp(await serialize(updated));
+
+  // Copiar o original pode demorar: corre depois de responder
+  queuePrepare(updated, priorityFor(req.userType));
+}));
+
+async function handlePrepareMessage(msg) {
+  const { videoId, jobId } = msg;
+  if (!mongoose.isValidObjectId(videoId) || !/^[0-9a-f-]{36}$/.test(jobId || "")) return;
+  if (msg.status === "processing") return;
+
+  const paths = prepPaths(videoId, jobId);
+  const video = await Video.getById(videoId);
+  try {
+    if (!video) return; // apagado entretanto
+
+    if (msg.status !== "success") {
+      console.error(JSON.stringify({ event: "video-preview-failed", videoId, code: msg.error?.code, reason: msg.error?.msg }));
+      // um pedido repetido que falha não estraga o que já está pronto
+      if (video.preview?.state !== "ready") await Video.updatePreview(videoId, { state: "failed" });
+      return;
+    }
+
+    const base = path.parse(video.name).name;
+    const store = async (file, suffix, type) =>
+      keyFromStorage(await post_file(video.user_id, video.project_id, STORAGE_STAGE, abs(file), base + suffix, type));
+
+    const fields = {
+      state: "ready",
+      proxy_key: await store(paths.proxy, ".proxy.mp4", "video/mp4"),
+      sprite_key: await store(paths.sprite, ".sprite.jpg", "image/jpeg"),
+      waveform_key: fs.existsSync(abs(paths.waveform))
+        ? await store(paths.waveform, ".waveform.json", "application/json")
+        : null,
+      sprite: msg.output?.sprite,
+    };
+    const updated = await Video.updatePreview(videoId, fields);
+
+    // Apagado enquanto guardávamos: os ficheiros novos ficaram sem dono.
+    // Pedido repetido: os da vez anterior deixam de ser usados.
+    const old = updated ? video.preview || {} : fields;
+    await deleteVideoFiles({ ...video.toObject(), storage_key: null, preview: old });
+  } catch (err) {
+    console.error(`[VIDEO] could not store preview video=${videoId}:`, err.message);
+    if (video.preview?.state !== "ready") await Video.updatePreview(videoId, { state: "failed" });
+  } finally {
+    await removeDir(paths.dir);
+  }
+}
 
 // ------------------------------------------------------------------ timeline
 //
@@ -409,14 +545,7 @@ async function prepareAndQueue(task, video) {
   try {
     await fsp.mkdir(abs(paths.dir), { recursive: true });
 
-    const urlResp = await get_image_internal_url(
-      video.user_id,
-      video.project_id,
-      STORAGE_STAGE,
-      video.storage_key,
-    );
-    const file = await axios.get(urlResp.data.url, { responseType: "stream" });
-    await pipeline(file.data, fs.createWriteStream(abs(paths.input)));
+    await copyOriginal(video, abs(paths.input));
 
     // Pode ter sido cancelada enquanto o ficheiro era copiado
     const fresh = await VideoTask.getById(task._id);
@@ -479,8 +608,7 @@ router.post("/:user/:project/videos/:video/cut", guard, loadUserType, wrap(async
       op: "cut",
       params: { start: check.start, end: check.end },
       state: "queued",
-      // Premium primeiro na fila (REQ-VID-CUT-009)
-      priority: req.userType === "premium" ? 5 : 1,
+      priority: priorityFor(req.userType),
       charged_ops: charged,
     });
   } catch (err) {
@@ -585,6 +713,8 @@ async function completeTask(taskId, outputRel) {
 }
 
 async function handleWorkerMessage(msg) {
+  if (msg?.procedure === "video_prepare") return handlePrepareMessage(msg);
+
   const taskId = msg?.taskId;
   if (!taskId || !mongoose.isValidObjectId(taskId)) return;
 
@@ -644,9 +774,18 @@ async function failUnsentTasks(bootTime) {
   }
 }
 
+// Pré-visualizações que ficaram a meio quando o serviço parou: pedir de novo
+// (o worker pode receber o mesmo vídeo duas vezes; a última vence)
+async function requeuePendingPreviews() {
+  for (const v of await Video.getPendingPreviews()) await queuePrepare(v);
+}
+
 function start_video_consumer() {
   failUnsentTasks(new Date()).catch((err) =>
     console.error("[VIDEO] could not fail unsent tasks:", err.message),
+  );
+  requeuePendingPreviews().catch((err) =>
+    console.error("[VIDEO] could not requeue previews:", err.message),
   );
   read_video_results(handleWorkerMessage);
 }
@@ -676,10 +815,7 @@ async function deleteProjectVideos(userId, projectId) {
     if (cancelled) await cancelTask(cancelled);
   }
 
-  const videos = await Video.getAll(userId, projectId);
-  for (const v of videos) {
-    await delete_image(userId, projectId, STORAGE_STAGE, v.storage_key).catch(() => {});
-  }
+  for (const v of await Video.getAll(userId, projectId)) await deleteVideoFiles(v);
   await Video.deleteAllFromProject(userId, projectId);
   await VideoTask.deleteAllFromProject(userId, projectId);
   await Timeline.deleteForProject(userId, projectId);

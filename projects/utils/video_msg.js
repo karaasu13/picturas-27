@@ -1,7 +1,8 @@
 // Mensagens RabbitMQ das tarefas de vídeo (UC-VID-001).
 //
 //  Projects-MS --video_cut_queue (prioridade)--> worker video_cut
-//  worker --video_result_queue--> Projects-MS (processing/success/error/cancelled)
+//  Projects-MS --video_prepare_queue (prioridade)--> worker video_render (pré-visualizações)
+//  workers --video_result_queue--> Projects-MS (processing/success/error/cancelled)
 //  Projects-MS --ws_queue--> ws_gateway --"video-task"--> browser do dono
 
 const amqp = require("amqplib");
@@ -12,6 +13,7 @@ const rabbit_url = `amqp://${process.env.RABBITMQ_USER}:${process.env.RABBITMQ_P
 
 const EXCHANGE = "picturas";
 const CUT_QUEUE = "video_cut_queue";
+const PREPARE_QUEUE = "video_prepare_queue";
 const RESULT_QUEUE = "video_result_queue";
 const WS_QUEUE = "ws_queue";
 const MAX_PRIORITY = 10;
@@ -27,11 +29,13 @@ async function getChannel() {
 
       const ch = await conn.createConfirmChannel();
       await ch.assertExchange(EXCHANGE, "direct", { durable: true });
-      await ch.assertQueue(CUT_QUEUE, {
-        durable: true,
-        arguments: { "x-max-priority": MAX_PRIORITY },
-      });
-      await ch.bindQueue(CUT_QUEUE, EXCHANGE, CUT_QUEUE);
+      for (const queue of [CUT_QUEUE, PREPARE_QUEUE]) {
+        await ch.assertQueue(queue, {
+          durable: true,
+          arguments: { "x-max-priority": MAX_PRIORITY },
+        });
+        await ch.bindQueue(queue, EXCHANGE, queue);
+      }
       await ch.assertQueue(RESULT_QUEUE, { durable: true });
       await ch.bindQueue(RESULT_QUEUE, EXCHANGE, RESULT_QUEUE);
       return ch;
@@ -44,11 +48,43 @@ async function getChannel() {
 }
 
 /**
- * Publica o pedido de corte. As mensagens são persistentes (não se perdem se
- * o RabbitMQ reiniciar) e as tarefas Premium têm prioridade maior.
+ * Publica um pedido para um worker. As mensagens são persistentes (não se
+ * perdem se o RabbitMQ reiniciar) e os pedidos Premium têm prioridade maior.
  */
-async function send_video_cut(msg_id, task, paths) {
+async function publish(queue, msg, priority) {
   const ch = await getChannel();
+  await new Promise((resolve, reject) => {
+    ch.publish(
+      EXCHANGE,
+      queue,
+      Buffer.from(JSON.stringify(msg)),
+      { persistent: true, priority: priority || 1, contentType: "application/json" },
+      (err) => (err ? reject(err) : resolve()),
+    );
+  });
+}
+
+/** Pede ao worker o proxy, o sprite e a forma de onda de um vídeo. */
+async function send_video_prepare(msg_id, job, priority) {
+  await publish(
+    PREPARE_QUEUE,
+    {
+      messageId: msg_id,
+      timestamp: new Date().toISOString(),
+      procedure: "video_prepare",
+      parameters: {
+        videoId: job.videoId,
+        jobId: job.jobId,
+        inputVideoURI: job.input,
+        workDir: job.dir,
+      },
+    },
+    priority,
+  );
+}
+
+/** Publica o pedido de corte. */
+async function send_video_cut(msg_id, task, paths) {
   const msg = {
     messageId: msg_id,
     timestamp: new Date().toISOString(),
@@ -64,15 +100,7 @@ async function send_video_cut(msg_id, task, paths) {
     },
   };
 
-  await new Promise((resolve, reject) => {
-    ch.publish(
-      EXCHANGE,
-      CUT_QUEUE,
-      Buffer.from(JSON.stringify(msg)),
-      { persistent: true, priority: task.priority || 1, contentType: "application/json" },
-      (err) => (err ? reject(err) : resolve()),
-    );
-  });
+  await publish(CUT_QUEUE, msg, task.priority);
 }
 
 /** Consome os estados enviados pelo worker. `handler` é async. */
@@ -116,4 +144,4 @@ function send_video_task_update(task) {
   );
 }
 
-module.exports = { send_video_cut, read_video_results, send_video_task_update };
+module.exports = { send_video_cut, send_video_prepare, read_video_results, send_video_task_update };
