@@ -90,7 +90,9 @@ function validateProbe(probe, originalName) {
     return { ok: false, code: "unsupported_format", message: MESSAGES.unsupported_format };
   }
 
-  const duration = Number(probe?.format?.duration ?? video.duration);
+  // Duração da faixa de vídeo: a do contentor pode incluir enchimento do
+  // áudio (no AVI com MP3 chega a +100 ms) que a timeline não deve mostrar
+  const duration = [video.duration, probe?.format?.duration].map(Number).find((d) => d > 0);
   const fps = parseFps(video.avg_frame_rate) ?? parseFps(video.r_frame_rate);
 
   if (!Number.isFinite(duration) || duration <= 0 || !video.width || !video.height || !fps) {

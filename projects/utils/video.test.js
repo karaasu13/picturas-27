@@ -1,7 +1,7 @@
 // Testes das regras puras de vídeo. Sem dependências: `npm test`.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { checkExportLimits, validateTimeline } = require("./video");
+const { checkExportLimits, resultName, validateProbe, validateTimeline } = require("./video");
 
 const videos = new Map([
   ["a", { _id: "a", name: "a.mp4", duration: 10, has_audio: true }],
@@ -147,4 +147,26 @@ test("export: up to 5 source videos for registered accounts and 20 for premium",
   assert.equal(code(limits({ userType: "premium", sourceCount: 20 })), "ok");
   assert.equal(code(limits({ userType: "premium", sourceCount: 21 })), "too_many_sources");
   assert.match(limits({ userType: "premium", sourceCount: 21 }).message, /up to 20/);
+});
+
+// ------------------------------------------------------------ vídeos
+
+test("uses the video track duration, not the container's", () => {
+  const probe = (videoDuration) => ({
+    format: { format_name: "avi", duration: "7.104000" },
+    streams: [
+      { codec_type: "video", codec_name: "h264", width: 640, height: 360, avg_frame_rate: "25/1", duration: videoDuration },
+      { codec_type: "audio", codec_name: "mp3", duration: "7.104000" },
+    ],
+  });
+  assert.equal(validateProbe(probe("7.000000"), "clip.avi").meta.duration, 7);
+  // sem duração na faixa de vídeo: usa a do contentor
+  assert.equal(validateProbe(probe(undefined), "clip.avi").meta.duration, 7.104);
+});
+
+test("export names never collide with existing videos", () => {
+  assert.equal(resultName("a.mp4", ["a.mp4"], "mp4"), "a_edit.mp4");
+  assert.equal(resultName("a.mp4", ["a.mp4", "a_edit.mp4"], "mp4"), "a_edit_2.mp4");
+  assert.equal(resultName("a.mp4", ["a_edit.mp4", "a_edit_2.mp4"], "mp4"), "a_edit_3.mp4");
+  assert.equal(resultName("a.mov", ["a_edit.mp4"], "avi"), "a_edit.avi");
 });
