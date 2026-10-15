@@ -32,6 +32,7 @@ const {
   post_file,
 } = require("../utils/imageStorage");
 const V = require("../utils/video");
+const { validateVideoConversion } = require("../dto/videoConversion");
 const {
   send_video_cut,
   read_video_results,
@@ -322,6 +323,27 @@ router.delete("/:user/:project/videos/:video", guard, wrap(async (req, res) => {
   );
   await Video.delete(req.params.user, req.params.project, video._id);
   res.sendStatus(204);
+}));
+
+// Validar uma conversão e calcular a estimativa, sem criar tarefa nem
+// comunicar com o worker. O processamento será ligado numa fase posterior.
+router.post("/:user/:project/videos/:video/convert", guard, wrap(async (req, res) => {
+  const video = await Video.getOne(req.params.user, req.params.project, req.params.video);
+  if (!video) return fail(res, 404, "not_found", "Vídeo não encontrado.");
+
+  const check = validateVideoConversion(req.body, video);
+  if (!check.ok) return fail(res, check.status, check.code, check.message);
+
+  return res.status(200).jsonp({
+    videoId: video._id,
+    original: {
+      format: video.format,
+      width: video.width,
+      height: video.height,
+      sizeBytes: video.size,
+    },
+    conversion: check.value,
+  });
 }));
 
 // ------------------------------------------------------------------- tarefas

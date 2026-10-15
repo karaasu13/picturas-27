@@ -82,6 +82,12 @@ router.delete(
 );
 
 router.post(
+  "/:user/:project/videos/:video/convert",
+  auth.checkToken,
+  proxy("post", (req) => `/videos/${id("video")(req)}/convert`),
+);
+
+router.post(
   "/:user/:project/videos/:video/cut",
   auth.checkToken,
   proxy("post", (req) => `/videos/${id("video")(req)}/cut`),
