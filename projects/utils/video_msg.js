@@ -105,9 +105,19 @@ async function send_video_render(msg_id, task, paths) {
   );
 }
 
-/** Consome os estados enviados pelo worker. `handler` é async. */
+/**
+ * Consome os estados enviados pelos workers. `handler` é async. Se a ligação
+ * cair (por exemplo, o RabbitMQ reiniciou), volta a ligar-se sozinho, com
+ * espera crescente: 1 s, 2 s, 4 s... até 30 s.
+ */
 async function read_video_results(handler) {
-  const start = async () => {
+  const start = async (attempt = 0) => {
+    const again = (n, reason) => {
+      const delay = Math.min(30000, 1000 * 2 ** n);
+      console.error(`[VIDEO] ${reason}: nova tentativa em ${delay / 1000} s`);
+      setTimeout(() => start(n + 1), delay);
+    };
+
     try {
       const ch = await getChannel();
       await ch.prefetch(1);
@@ -118,13 +128,17 @@ async function read_video_results(handler) {
         } catch (err) {
           console.error("[VIDEO] error handling worker message:", err);
         } finally {
-          ch.ack(msg);
+          // Sem ligação não há ack: a mensagem volta a ser entregue ao religar
+          try {
+            ch.ack(msg);
+          } catch (_) {}
         }
       });
+      // A ligação chegou a funcionar: se cair, a espera recomeça do início
+      ch.once("close", () => again(0, "ligação ao RabbitMQ perdida"));
       console.log("[VIDEO] listening on", RESULT_QUEUE);
     } catch (err) {
-      console.error("[VIDEO] RabbitMQ not ready, retrying in 5s:", err.message);
-      setTimeout(start, 5000);
+      again(attempt, `RabbitMQ indisponível (${err.message})`);
     }
   };
   start();
