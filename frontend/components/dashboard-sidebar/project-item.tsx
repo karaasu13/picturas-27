@@ -97,7 +97,7 @@ export default function ProjectItem({ p }: { p: Project }) {
         </SidebarMenuButton>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuAction className="pb-1">
+            <SidebarMenuAction className="pb-1" aria-label={`More actions for ${p.name}`}>
               <Ellipsis />
             </SidebarMenuAction>
           </DropdownMenuTrigger>

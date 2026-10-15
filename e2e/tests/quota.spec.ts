@@ -19,8 +19,7 @@ async function slowTimeline(account: Account, pid: string) {
 
 // Menu do projeto na barra lateral: Delete -> Permanently Delete
 async function deleteFromSidebar(page: Page, name: string) {
-  const item = page.getByRole("listitem").filter({ has: page.getByRole("link", { name, exact: true }) });
-  await item.getByRole("button").click();
+  await page.getByRole("button", { name: `More actions for ${name}`, exact: true }).click();
   await page.getByRole("menuitem", { name: "Delete" }).click();
   await page.getByRole("button", { name: "Permanently Delete" }).click();
 }
