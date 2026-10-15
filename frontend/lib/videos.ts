@@ -93,6 +93,10 @@ export const VIDEO_RULES = {
   minResult: 5,
 };
 
+// Pela extensão: o tipo MIME de um .avi ou .mov varia de sistema para sistema (ou vem vazio)
+export const isVideoFile = (file: File) =>
+  Object.values(VIDEO_RULES.accept).flat().some((ext) => file.name.toLowerCase().endsWith(ext));
+
 // Limites da exportação por perfil (lado maior x lado menor do output)
 export const EXPORT_LIMITS = {
   free: { maxDuration: 10 * 60, maxLong: 1920, maxShort: 1080, maxSources: 5 },

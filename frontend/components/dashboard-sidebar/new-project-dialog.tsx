@@ -17,6 +17,7 @@ import { useSession } from "@/providers/session-provider";
 import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getErrorMessage } from "@/lib/error-messages";
+import { isVideoFile, uploadVideo, videoErrorMessage } from "@/lib/videos";
 
 export default function NewProjectDialog({
   files = [],
@@ -32,27 +33,50 @@ export default function NewProjectDialog({
 
   const [open, setOpen] = useState<boolean>(false);
   const [name, setName] = useState<string>("");
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingVideos, setUploadingVideos] = useState<boolean>(false);
 
   const session = useSession();
   const addProject = useAddProject(session.user._id, session.token);
+  const busy = addProject.isPending || uploadingVideos;
 
   function handleCreate() {
+    const videos = selectedFiles.filter(isVideoFile);
     addProject.mutate(
       {
         uid: session.user._id,
         token: session.token,
         name: name,
-        images: imageFiles,
+        images: selectedFiles.filter((file) => !isVideoFile(file)),
       },
       {
-        onSuccess: (project) => {
+        onSuccess: async (project) => {
+          // Os vídeos vão depois de o projeto existir; um que falhe avisa e não impede os outros
+          let failed = false;
+          setUploadingVideos(true);
+          for (const file of videos) {
+            try {
+              await uploadVideo({ uid: session.user._id, pid: project._id, token: session.token, file });
+            } catch (error) {
+              failed = true;
+              toast({
+                title: "The video couldn't be uploaded",
+                description: `${file.name}: ${videoErrorMessage(error, "The upload failed. Try again.")}`,
+                variant: "destructive",
+              });
+            }
+          }
+          setUploadingVideos(false);
           setOpen(false);
-          toast({
+          // Só se vê um toast de cada vez: não tapar o aviso de um vídeo que falhou
+          if (!failed)
+            toast({
               title: "Project created successfully.",
-              description: "The images were added to the new project.",
-          });
-          if (project) router.push(`/dashboard/${project._id}`);
+              description: videos.length > 0
+                ? "The videos were added to the video editor."
+                : "The images were added to the new project.",
+            });
+          router.push(videos.length > 0 ? `/dashboard/${project._id}/videos` : `/dashboard/${project._id}`);
         },
         onError: (error) => {
           const { title, description } = getErrorMessage("project-create", error);
@@ -74,7 +98,7 @@ export default function NewProjectDialog({
 
   useEffect(() => {
     setName("");
-    setImageFiles([]);
+    setSelectedFiles([]);
     if (setFiles && open === false) setFiles([]);
   }, [open, setFiles]);
 
@@ -93,17 +117,18 @@ export default function NewProjectDialog({
           onChange={(e) => setName(e.target.value)}
         />
         <ImageSubmissionArea
-          onDrop={(files) => setImageFiles(files)}
+          onDrop={(files) => setSelectedFiles(files)}
           receivedFiles={files}
+          videos
         />
         <DialogFooter>
           <Button
             onClick={() => handleCreate()}
-            disabled={imageFiles.length <= 0 || name === ""}
+            disabled={busy || selectedFiles.length <= 0 || name === ""}
             className="inline-flex items-center gap-1"
           >
             <span>Create</span>
-            {addProject.isPending && (
+            {busy && (
               <LoaderCircle className="size-[1em] animate-spin" />
             )}
           </Button>
