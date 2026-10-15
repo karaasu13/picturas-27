@@ -4,7 +4,7 @@ Ponto de situação do branch `feature/timeline` a 15/10/2026, para retomar o tr
 
 ## Estado atual
 
-- Tudo está no branch `feature/timeline`, criado a partir da `main` (`7b5a938`). **Ainda não houve push, PR nem merge.**
+- Tudo está no branch `feature/timeline`, criado a partir da `main` (`7b5a938`), com push para `grupo/feature/timeline`. **Ainda não houve PR nem merge.**
 - Remotes: `grupo` é o repo do grupo (karaasu13/picturas-27); `origin` (picturas-um/picturas-27) **não se mexe**.
 - As 4 fases do plano estão feitas, a ronda de testes com Playwright também, e os bugs 1 a 8 estão corrigidos.
 - **Próximo passo:** o PR e o merge, quando o utilizador pedir.
@@ -32,6 +32,11 @@ Commits do branch (`git log --oneline main..HEAD`), do mais antigo para o mais r
 | `56b0866` | bug 1: um volume de 128 MB por bucket no SeaweedFS |
 | `7e075d7` | relatório E2E da segunda ronda |
 | `b19e63e` | bug 6: pedidos e respostas das ferramentas de imagem persistentes |
+| `b38baf3` | demonstração gravada do editor (`e2e/demo/`, fora da suite) |
+| `2b75488` | bug 7: arrastar vídeos para o ecrã inicial cria o projeto |
+| `be93c4c` | bug 8: o login voltou a funcionar |
+| `b994ea2` | a roda do rato desloca a timeline |
+| `adb3d65` | layout do editor: painéis redimensionáveis e modo Focus |
 
 ## Decisões
 
@@ -67,7 +72,12 @@ undo, redo              // cópias de {output, faixas}, no máximo 50
 - **Frontend:**
   - `frontend/lib/timeline.ts` tem as operações puras (split, remove com ou sem ripple, trim, setSpeed, move, unlink/link, inserir);
   - `hooks/use-timeline.ts` grava as edições em fila e de forma otimista;
-  - os componentes estão em `components/videos/`.
+  - os componentes estão em `components/videos/`;
+  - layout (`adb3d65`):
+    - painéis redimensionáveis (`components/ui/resizable.tsx`, react-resizable-panels 2.1.7) em %, com os mínimos em px do conteúdo convertidos em % do espaço medido; os tamanhos ficam no localStorage;
+    - a barra lateral começa recolhida no editor e volta ao estado anterior ao sair;
+    - a timeline começa com ~40 % da altura, sem passar do que as faixas no máximo precisam (V1 64–128 px, A1 48–96 px);
+    - modo Focus (F) e Ctrl+B para a barra lateral.
 - A timeline foi escrita de raiz, com pointer events e componentes da casa. A react-timeline-editor foi avaliada e rejeitada:
   - não tem in/out de origem, `link_id` nem ripple;
   - altera as ações diretamente, antes do `onChange`;
