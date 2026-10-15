@@ -60,9 +60,6 @@ test("deleting the project during an export cancels it and refunds the operation
   expect(await account.remainingOperations()).toBe(4);
   const [{ _id: taskId }] = await (await account.tasks(pid)).json();
 
-  // Apaga-se a partir da página do projeto: no editor de vídeo a barra lateral
-  // não consegue apagar (bug 2 do e2e/REPORT.md, teste abaixo)
-  await page.goto(`/dashboard/${pid}`);
   await deleteFromSidebar(page, name);
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(toasts(page).getByText("Project deleted successfully.")).toBeVisible();
@@ -76,12 +73,13 @@ test("deleting the project during an export cancels it and refunds the operation
 });
 
 test("deleting the project from the sidebar while in the video editor", async ({ page, request }) => {
-  test.fail(true, "bug 2 do e2e/REPORT.md: a confirmação fica aberta e o projeto não é apagado");
   const account = await Account.create(request);
   const name = `delete-from-editor-${Date.now()}`;
   const pid = await account.createProject(name);
   await openEditor(page, account, pid);
 
   await deleteFromSidebar(page, name);
-  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 10_000 });
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(toasts(page).getByText("Project deleted successfully.")).toBeVisible();
+  expect((await account.tasks(pid)).status()).toBe(404);
 });
