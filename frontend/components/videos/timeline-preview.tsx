@@ -1,26 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LoaderCircle, Pause, Play, RotateCw, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
+import { LoaderCircle, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { TimeField } from "./time-field";
 import * as T from "@/lib/timeline";
-import { formatTimecode, ProjectVideo } from "@/lib/videos";
+import { ProjectVideo } from "@/lib/videos";
 import { cn } from "@/lib/utils";
 
 /**
  * Pré-visualização da timeline sem render: um <video> (sem som) segue a
  * faixa de vídeo e um <audio> segue a faixa de áudio, ambos sobre os proxies
  * e guiados por um relógio próprio. A velocidade de cada clip usa
- * playbackRate com preservesPitch (como o atempo do render).
+ * playbackRate com preservesPitch (como o atempo do render). Os controlos de
+ * reprodução estão na barra da timeline.
  */
 export function TimelinePreview({
   timeline,
   videos,
   time,
   duration,
-  frame,
   playing,
   onTime,
   onPlayingChange,
@@ -30,7 +28,6 @@ export function TimelinePreview({
   videos: Map<string, ProjectVideo>;
   time: number;
   duration: number;
-  frame: number; // 1/fps
   playing: boolean;
   onTime: (t: number) => void;
   onPlayingChange: (playing: boolean) => void;
@@ -96,105 +93,51 @@ export function TimelinePreview({
   const { largura, altura, fit } = timeline.output;
   const scale = Math.min(box.w / largura, box.h / altura) || 0;
 
-  const seek = (t: number) => onTime(Math.min(Math.max(0, t), duration));
-
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div ref={boxRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-        <div
-          className="relative overflow-hidden rounded-md bg-black"
-          style={{ width: largura * scale, height: altura * scale }}
-        >
-          <video
-            ref={videoRef}
-            data-testid="preview-video"
-            muted
-            playsInline
-            preload="auto"
-            className={cn(
-              "absolute inset-0 h-full w-full",
-              fit === "crop" ? "object-cover" : "object-contain",
-              (!clip || !ready) && "invisible",
+    <div ref={boxRef} className="flex size-full min-h-0 items-center justify-center overflow-hidden">
+      <div
+        className="relative overflow-hidden rounded-md bg-black"
+        style={{ width: largura * scale, height: altura * scale }}
+      >
+        <video
+          ref={videoRef}
+          data-testid="preview-video"
+          muted
+          playsInline
+          preload="auto"
+          className={cn(
+            "absolute inset-0 h-full w-full",
+            fit === "crop" ? "object-cover" : "object-contain",
+            (!clip || !ready) && "invisible",
+          )}
+        />
+        <audio ref={audioRef} preload="auto" data-testid="preview-audio" />
+
+        {clip && !ready && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-white/80">
+            {source?.preview.state === "pending" ? (
+              <>
+                <LoaderCircle className="size-5 animate-spin" /> Preparing preview…
+              </>
+            ) : (
+              <>
+                <span>Preview unavailable for {source?.name ?? "this video"}.</span>
+                {source && (
+                  <Button size="sm" variant="secondary" onClick={() => onRetryPreview(source)}>
+                    <RotateCw /> Retry
+                  </Button>
+                )}
+              </>
             )}
-          />
-          <audio ref={audioRef} preload="auto" data-testid="preview-audio" />
-
-          {clip && !ready && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-white/80">
-              {source?.preview.state === "pending" ? (
-                <>
-                  <LoaderCircle className="size-5 animate-spin" /> Preparing preview…
-                </>
-              ) : (
-                <>
-                  <span>Preview unavailable for {source?.name ?? "this video"}.</span>
-                  {source && (
-                    <Button size="sm" variant="secondary" onClick={() => onRetryPreview(source)}>
-                      <RotateCw /> Retry
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-          {duration === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-white/70">
-              Add a video to the timeline to preview it here.
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-1">
-        <TransportButton label="Go to start" onClick={() => seek(0)}>
-          <SkipBack />
-        </TransportButton>
-        <TransportButton label="Previous frame (←)" onClick={() => seek(time - frame)}>
-          <StepBack />
-        </TransportButton>
-        <TransportButton
-          label={playing ? "Pause (Space)" : "Play (Space)"}
-          onClick={() => onPlayingChange(!playing)}
-          disabled={duration === 0}
-        >
-          {playing ? <Pause /> : <Play />}
-        </TransportButton>
-        <TransportButton label="Next frame (→)" onClick={() => seek(time + frame)}>
-          <StepForward />
-        </TransportButton>
-        <TransportButton label="Go to end" onClick={() => seek(duration)}>
-          <SkipForward />
-        </TransportButton>
-
-        <TimeField id="playhead" seconds={time} max={duration} onCommit={seek} className="ml-2 w-32" />
-        <span className="font-mono text-xs text-muted-foreground" data-testid="timeline-duration">
-          / {formatTimecode(duration)}
-        </span>
+          </div>
+        )}
+        {duration === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-white/70">
+            Add a video to the timeline to preview it here.
+          </div>
+        )}
       </div>
     </div>
-  );
-}
-
-function TransportButton({
-  label,
-  onClick,
-  disabled,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8" aria-label={label} onClick={onClick} disabled={disabled}>
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
   );
 }
 

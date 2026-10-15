@@ -33,7 +33,7 @@ export function VideoLibrary({
   onRetryPreview: (video: ProjectVideo) => void;
 }) {
   if (videos.length === 0) {
-    return <p className="text-sm text-muted-foreground px-1">This project has no videos yet.</p>;
+    return <p className="text-sm text-muted-foreground px-1">No videos yet. Drop files here or use Upload.</p>;
   }
 
   return (
@@ -49,7 +49,7 @@ export function VideoLibrary({
                 e.dataTransfer.setData(VIDEO_DRAG_TYPE, video._id);
                 e.dataTransfer.effectAllowed = "copy";
               }}
-              className="group flex items-center gap-2 rounded-lg border px-2 py-2 cursor-grab active:cursor-grabbing hover:bg-sidebar"
+              className="group flex items-center gap-2 rounded-md border px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-sidebar"
               title="Drag to the timeline"
             >
               {video.source === "render" ? (
@@ -66,7 +66,7 @@ export function VideoLibrary({
                     </Badge>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground">
+                <span className="block truncate text-xs text-muted-foreground">
                   {formatDuration(video.duration)} · {video.width}×{video.height} · {formatBytes(video.size)}
                 </span>
                 {state === "pending" && (
@@ -90,7 +90,7 @@ export function VideoLibrary({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 shrink-0"
+                className="size-7 shrink-0"
                 title="Add to timeline"
                 aria-label={`Add ${video.name} to the timeline`}
                 onClick={() => onAdd(video)}
@@ -103,7 +103,7 @@ export function VideoLibrary({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-8 shrink-0 text-muted-foreground"
+                    className="size-7 shrink-0 text-muted-foreground"
                     title={busy ? "Used by an export in progress" : "Delete video"}
                     aria-label={`Delete ${video.name}`}
                     disabled={busy}

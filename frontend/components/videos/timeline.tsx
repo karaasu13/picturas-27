@@ -34,8 +34,21 @@ type View = { left: number; width: number };
 type DragMode = "move" | "in" | "out";
 type Drag = { mode: DragMode; linkId: string; startX: number; start: number; dx: number; moved: boolean };
 
-const VIDEO_LANE_H = 64; // px (h-16): altura das miniaturas
+const RULER_H = 24; // px (h-6)
 const RULER_STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800];
+
+// As faixas crescem com o painel da timeline, entre um mínimo (V1 e A1 sempre
+// inteiras) e um máximo. Alturas da timeline com as faixas no mínimo e no
+// máximo (régua e barra de scroll incluídas); o painel do editor usa-as
+type LaneHeights = { video: number; audio: number };
+const LANE_MIN: LaneHeights = { video: 64, audio: 48 };
+const LANE_MAX: LaneHeights = { video: 128, audio: 96 };
+export const TIMELINE_MIN_H = RULER_H + LANE_MIN.video + LANE_MIN.audio + 20;
+export const TIMELINE_MAX_H = RULER_H + LANE_MAX.video + LANE_MAX.audio + 20;
+function laneHeights(available: number): LaneHeights {
+  const clamp = (v: number, tipo: keyof LaneHeights) => Math.floor(Math.min(LANE_MAX[tipo], Math.max(LANE_MIN[tipo], v)));
+  return { video: clamp((available * 4) / 7, "video"), audio: clamp((available * 3) / 7, "audio") };
+}
 
 /**
  * Timeline com régua, faixa de vídeo (miniaturas) e de áudio (forma de onda)
@@ -68,6 +81,7 @@ export function Timeline({
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ left: 0, width: 800 });
+  const [lanes, setLanes] = useState<LaneHeights>(laneHeights(0));
   const [drag, setDrag] = useState<Drag | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
   const [seeking, setSeeking] = useState(false);
@@ -87,7 +101,10 @@ export function Timeline({
     if (!el) return;
     const update = () => setView({ left: el.scrollLeft, width: el.clientWidth });
     update();
-    const ro = new ResizeObserver(update);
+    const ro = new ResizeObserver(() => {
+      update();
+      setLanes(laneHeights(el.clientHeight - RULER_H));
+    });
     ro.observe(el);
     el.addEventListener("scroll", update, { passive: true });
     // A roda do rato (vertical) desloca a timeline na horizontal; o trackpad na
@@ -212,13 +229,13 @@ export function Timeline({
   const empty = shown.faixas.every((f) => f.clips.length === 0);
 
   return (
-    <div className="flex select-none text-xs">
+    <div className="flex size-full min-h-0 select-none text-xs">
       <div className="w-10 shrink-0 border-r bg-sidebar text-muted-foreground">
         <div className="h-6 border-b" />
-        <div className="flex h-16 items-center justify-center gap-0.5 border-b" title="Video track">
+        <div className="flex items-center justify-center gap-0.5 border-b" style={{ height: lanes.video }} title="Video track">
           <Film className="size-3.5" /> V1
         </div>
-        <div className="flex h-12 items-center justify-center gap-0.5" title="Audio track">
+        <div className="flex items-center justify-center gap-0.5" style={{ height: lanes.audio }} title="Audio track">
           <AudioLines className="size-3.5" /> A1
         </div>
       </div>
@@ -252,6 +269,7 @@ export function Timeline({
             videos={videos}
             zoom={zoom}
             view={view}
+            lanes={lanes}
             selected={selected}
             onClipPointerDown={startDrag}
             onSelect={select}
@@ -264,7 +282,7 @@ export function Timeline({
           />
 
           {empty && (
-            <p className="pointer-events-none absolute inset-x-0 top-6 flex h-28 items-center justify-center text-sm text-muted-foreground">
+            <p className="pointer-events-none absolute inset-x-0 bottom-0 top-6 flex items-center justify-center text-sm text-muted-foreground">
               Drag videos here, or use + in the library.
             </p>
           )}
@@ -328,6 +346,7 @@ const Lanes = memo(function Lanes({
   videos,
   zoom,
   view,
+  lanes,
   selected,
   onClipPointerDown,
   onSelect,
@@ -338,6 +357,7 @@ const Lanes = memo(function Lanes({
   videos: Map<string, ProjectVideo>;
   zoom: number;
   view: View;
+  lanes: LaneHeights;
   selected: string | null;
   onClipPointerDown: (e: React.PointerEvent, linkId: string, mode: DragMode) => void;
   onSelect: (linkId: string | null) => void;
@@ -349,7 +369,8 @@ const Lanes = memo(function Lanes({
       {(["video", "audio"] as const).map((tipo) => (
         <div
           key={tipo}
-          className={cn("relative", tipo === "video" ? "h-16 border-b" : "h-12")}
+          className={cn("relative", tipo === "video" && "border-b")}
+          style={{ height: lanes[tipo] }}
           onPointerDown={onBackgroundPointerDown}
         >
           {T.track(timeline, tipo)?.clips.map((clip) => {
@@ -363,6 +384,7 @@ const Lanes = memo(function Lanes({
                 video={video}
                 zoom={zoom}
                 view={view}
+                laneH={lanes.video}
                 selected={clip.link_id === selected}
                 // um clip sozinho que podia ter par (áudio, ou vídeo com áudio) está desligado
                 unlinked={groupSize === 1 && (tipo === "audio" || !!video?.hasAudio)}
@@ -386,6 +408,7 @@ function ClipBlock({
   video,
   zoom,
   view,
+  laneH,
   selected,
   unlinked,
   canLink,
@@ -399,6 +422,7 @@ function ClipBlock({
   video: ProjectVideo | undefined;
   zoom: number;
   view: View;
+  laneH: number;
   selected: boolean;
   unlinked: boolean;
   canLink: boolean;
@@ -431,7 +455,7 @@ function ClipBlock({
           onFocus={() => onSelect(id)}
         >
           {tipo === "video" ? (
-            <Thumbnails clip={clip} video={video} zoom={zoom} left={left} view={view} />
+            <Thumbnails clip={clip} video={video} zoom={zoom} left={left} view={view} height={laneH} />
           ) : (
             <WaveformView clip={clip} video={video} />
           )}
@@ -503,18 +527,20 @@ function Thumbnails({
   zoom,
   left,
   view,
+  height,
 }: {
   clip: T.Clip;
   video: ProjectVideo | undefined;
   zoom: number;
   left: number;
   view: View;
+  height: number;
 }) {
   const sprite = video?.preview.sprite;
   const url = video?.preview.spriteUrl;
   if (!sprite || !url) return null;
 
-  const tileW = sprite.width * (VIDEO_LANE_H / sprite.height);
+  const tileW = sprite.width * (height / sprite.height);
   const width = T.clipDuration(clip) * zoom;
   const rows = Math.ceil(sprite.count / sprite.cols);
   const from = Math.max(0, Math.floor((view.left - left) / tileW) - 1);
@@ -531,7 +557,7 @@ function Thumbnails({
         key={i}
         x={i * tileW}
         width={tileW}
-        height={VIDEO_LANE_H}
+        height={height}
         viewBox={`${sx} ${sy} ${sprite.width} ${sprite.height}`}
         preserveAspectRatio="none"
       >
@@ -541,7 +567,7 @@ function Thumbnails({
   }
 
   return (
-    <svg className="pointer-events-none absolute left-0 top-0 opacity-90" width={width} height={VIDEO_LANE_H} aria-hidden>
+    <svg className="pointer-events-none absolute left-0 top-0 opacity-90" width={width} height={height} aria-hidden>
       {tiles}
     </svg>
   );

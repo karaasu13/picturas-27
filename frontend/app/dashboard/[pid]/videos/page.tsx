@@ -1,13 +1,24 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import {
   ArrowLeft,
   Clapperboard,
+  Library,
   Link2,
+  Maximize2,
+  Minimize2,
+  Pause,
+  Play,
   Redo2,
   Scissors,
+  SkipBack,
+  SkipForward,
+  SlidersHorizontal,
+  StepBack,
+  StepForward,
   Trash2,
   Undo2,
   Unlink,
@@ -16,15 +27,17 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Loading from "@/components/loading";
 import { VideoUpload } from "@/components/videos/video-upload";
 import { VideoLibrary } from "@/components/videos/video-library";
-import { ClipActions, Timeline } from "@/components/videos/timeline";
+import { ClipActions, Timeline, TIMELINE_MAX_H, TIMELINE_MIN_H } from "@/components/videos/timeline";
 import { TimelinePreview } from "@/components/videos/timeline-preview";
+import { TimeField } from "@/components/videos/time-field";
 import { ClipInspector } from "@/components/videos/clip-inspector";
 import { ExportPanel } from "@/components/videos/export-panel";
 import { useSession } from "@/providers/session-provider";
@@ -42,11 +55,38 @@ import { useUpdateSession } from "@/lib/mutations/session";
 import * as T from "@/lib/timeline";
 import {
   ACTIVE_TASK_STATES,
+  formatTimecode,
   ProjectVideo,
   VideoTask,
   videoErrorCode,
   videoErrorMessage,
 } from "@/lib/videos";
+
+// Os tamanhos dos painéis ficam no localStorage; sem ele (modo privado, dados
+// bloqueados) ficam só em memória
+const panelStorage = {
+  getItem: (key: string) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // sem localStorage
+    }
+  },
+};
+
+// Os painéis medem-se em % do editor; os mínimos em px (o que o conteúdo
+// precisa) passam a % do espaço que há, sem descer abaixo de um mínimo em %
+const minPct = (px: number, total: number, floor: number) =>
+  total > 0 ? Math.max(floor, Math.ceil((px / total) * 100)) : floor;
+
+const TIMELINE_BAR_H = 41; // barra de ferramentas e transporte, com a borda
 
 // Editor de vídeo do projeto: biblioteca, pré-visualização, timeline e
 // exportação. Editar não gera ficheiros nem gasta quota; só exportar.
@@ -85,6 +125,63 @@ export default function VideoEditor({ params }: { params: Promise<{ pid: string 
   const [zoom, setZoom] = useState(40);
   const [tab, setTab] = useState("clip");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // ----------------------------------------------------------- layout
+
+  // No editor a barra lateral começa recolhida (Ctrl+B ou o botão abrem-na);
+  // ao sair volta ao estado que tinha
+  const sidebar = useSidebar();
+  const sidebarWasOpen = useRef(sidebar.open);
+  useEffect(() => {
+    const was = sidebarWasOpen.current;
+    sidebar.setOpen(false);
+    return () => sidebar.setOpen(was);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const libraryRef = useRef<ImperativePanelHandle>(null);
+  const inspectorRef = useRef<ImperativePanelHandle>(null);
+  const [libraryOpen, setLibraryOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+
+  const togglePanel = (panel: ImperativePanelHandle | null) => {
+    if (panel?.isCollapsed()) panel.expand();
+    else panel?.collapse();
+  };
+
+  // Modo Focus: só a pré-visualização e a timeline; ao sair repõe o que estava
+  const focus = !sidebar.open && !libraryOpen && !inspectorOpen;
+  const beforeFocus = useRef({ sidebar: false, library: true, inspector: true });
+  function toggleFocus() {
+    if (!focus) {
+      beforeFocus.current = { sidebar: sidebar.open, library: libraryOpen, inspector: inspectorOpen };
+      sidebar.setOpen(false);
+      libraryRef.current?.collapse();
+      inspectorRef.current?.collapse();
+      return;
+    }
+    const b = beforeFocus.current;
+    // já estava tudo recolhido antes: sair do Focus mostra a biblioteca e o inspector
+    const restore = b.sidebar || b.library || b.inspector ? b : { sidebar: false, library: true, inspector: true };
+    if (restore.sidebar) sidebar.setOpen(true);
+    if (restore.library) libraryRef.current?.expand();
+    if (restore.inspector) inspectorRef.current?.expand();
+  }
+
+  // Espaço do editor, para converter os mínimos em px dos painéis em %
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  const areaRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setArea({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const libraryMin = minPct(200, area.w, 12);
+  const inspectorMin = minPct(290, area.w, 14); // Source in/out lado a lado sem cortes
+  const timelineMin = Math.min(75, minPct(TIMELINE_BAR_H + TIMELINE_MIN_H + 2, area.h, 20));
+  // Por omissão ~40 %, mas não mais do que as faixas no máximo precisam: em
+  // ecrãs altos o resto fica para a pré-visualização
+  const timelineDefault = Math.max(timelineMin, Math.min(40, minPct(TIMELINE_BAR_H + TIMELINE_MAX_H + 2, area.h, 0)));
 
   const duration = draft ? T.timelineDuration(draft) : 0;
   const firstClip = draft ? T.track(draft, "video")?.clips[0] : undefined;
@@ -202,6 +299,10 @@ export default function VideoEditor({ params }: { params: Promise<{ pid: string 
         case "Escape":
           setSelected(null);
           break;
+        case "f":
+        case "F":
+          if (!e.altKey) toggleFocus();
+          break;
       }
     };
     window.addEventListener("keydown", onKey);
@@ -303,19 +404,24 @@ export default function VideoEditor({ params }: { params: Promise<{ pid: string 
   return (
     <div className="flex h-screen flex-col">
       {/* Cabeçalho */}
-      <div className="flex items-center gap-2 border-b border-sidebar-border px-2 py-2 md:px-3 xl:px-4">
-        <SidebarTrigger variant="outline" className="h-9 w-10 lg:hidden" />
-        <Button asChild variant="ghost" size="icon" title="Back to the project">
+      <div className="flex items-center gap-1 border-b border-sidebar-border px-2 py-1.5 md:px-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SidebarTrigger className="size-8" aria-label="Toggle sidebar (Ctrl+B)" />
+          </TooltipTrigger>
+          <TooltipContent>Toggle sidebar (Ctrl+B)</TooltipContent>
+        </Tooltip>
+        <Button asChild variant="ghost" size="icon" className="size-8" title="Back to the project">
           <Link href={`/dashboard/${pid}`} aria-label="Back to the project">
             <ArrowLeft />
           </Link>
         </Button>
-        <Clapperboard className="size-4 text-muted-foreground" />
-        <h1 className="truncate text-lg font-semibold">
+        <Clapperboard className="ml-1 size-4 shrink-0 text-muted-foreground" />
+        <h1 className="truncate text-base font-semibold">
           Video editor{project.data?.name ? ` · ${project.data.name}` : ""}
         </h1>
-        <div className="ml-auto flex items-center gap-1">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <span className="mr-1 hidden text-xs text-muted-foreground md:inline">
             {tl.saving ? "Saving…" : "All changes saved"}
           </span>
           <IconButton label="Undo (Ctrl+Z)" onClick={undo} disabled={!tl.canUndo}>
@@ -323,6 +429,22 @@ export default function VideoEditor({ params }: { params: Promise<{ pid: string 
           </IconButton>
           <IconButton label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!tl.canRedo}>
             <Redo2 />
+          </IconButton>
+          <div className="mx-1 h-5 w-px bg-border" />
+          <IconButton
+            label={libraryOpen ? "Hide library" : "Show library"}
+            onClick={() => togglePanel(libraryRef.current)}
+          >
+            <Library />
+          </IconButton>
+          <IconButton
+            label={inspectorOpen ? "Hide clip and export panel" : "Show clip and export panel"}
+            onClick={() => togglePanel(inspectorRef.current)}
+          >
+            <SlidersHorizontal />
+          </IconButton>
+          <IconButton label={focus ? "Exit focus mode (F)" : "Focus mode (F)"} onClick={toggleFocus}>
+            {focus ? <Minimize2 /> : <Maximize2 />}
           </IconButton>
         </div>
       </div>
@@ -335,139 +457,217 @@ export default function VideoEditor({ params }: { params: Promise<{ pid: string 
           </Alert>
         </div>
       ) : (
-        <>
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[17rem_minmax(0,1fr)_19rem] lg:overflow-hidden">
-            {/* Biblioteca */}
-            <aside className="flex flex-col gap-3 border-b p-3 lg:overflow-y-auto lg:border-b-0 lg:border-r">
-              {userType === "anonymous" ? (
-                <Alert>
-                  <AlertDescription>
-                    Anonymous users don&apos;t have access to the video tools.{" "}
-                    <Link href="/register" className="underline">
-                      Create an account
-                    </Link>{" "}
-                    to continue.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <VideoUpload uid={uid} pid={pid} token={token} />
-              )}
-              <h2 className="px-1 text-sm font-semibold text-muted-foreground">Library ({videoList.length})</h2>
-              <VideoLibrary
-                videos={videoList}
-                busyIds={busyVideoIds}
-                onAdd={(v) => insert(v._id)}
-                onDelete={remove}
-                onRetryPreview={retryPreview}
-              />
-            </aside>
+        <div ref={areaRef} className="min-h-0 flex-1">
+          {/* os tamanhos iniciais dependem do espaço: os painéis montam depois de o medir */}
+          {area.h > 0 && (
+            <ResizablePanelGroup direction="vertical" autoSaveId="video-editor-rows" storage={panelStorage}>
+              <ResizablePanel id="editor-top" order={1} defaultSize={100 - timelineDefault} minSize={25}>
+                <ResizablePanelGroup direction="horizontal" autoSaveId="video-editor-columns" storage={panelStorage}>
+                  {/* Biblioteca */}
+                  <ResizablePanel
+                    id="library"
+                    order={1}
+                    ref={libraryRef}
+                    collapsible
+                    collapsedSize={0}
+                    defaultSize={Math.max(18, libraryMin)}
+                    minSize={libraryMin}
+                    maxSize={35}
+                    onCollapse={() => setLibraryOpen(false)}
+                    onExpand={() => setLibraryOpen(true)}
+                  >
+                    <VideoUpload
+                      uid={uid}
+                      pid={pid}
+                      token={token}
+                      title={`Library (${videoList.length})`}
+                      disabled={userType === "anonymous"}
+                    >
+                      {userType === "anonymous" && (
+                        <Alert className="mb-2">
+                          <AlertDescription>
+                            Anonymous users don&apos;t have access to the video tools.{" "}
+                            <Link href="/register" className="underline">
+                              Create an account
+                            </Link>{" "}
+                            to continue.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <VideoLibrary
+                        videos={videoList}
+                        busyIds={busyVideoIds}
+                        onAdd={(v) => insert(v._id)}
+                        onDelete={remove}
+                        onRetryPreview={retryPreview}
+                      />
+                    </VideoUpload>
+                  </ResizablePanel>
+                  <ResizableHandle withHandle />
 
-            {/* Pré-visualização */}
-            <section className="flex min-h-72 flex-col p-3">
-              <TimelinePreview
-                timeline={draft}
-                videos={videos}
-                time={time}
-                duration={duration}
-                frame={frame}
-                playing={playing}
-                onTime={setTime}
-                onPlayingChange={setPlaying}
-                onRetryPreview={retryPreview}
-              />
-            </section>
+                  {/* Pré-visualização: todo o espaço livre, com a proporção da saída */}
+                  <ResizablePanel id="preview" order={2} minSize={30}>
+                    <div className="size-full p-2">
+                      <TimelinePreview
+                        timeline={draft}
+                        videos={videos}
+                        time={time}
+                        duration={duration}
+                        playing={playing}
+                        onTime={setTime}
+                        onPlayingChange={setPlaying}
+                        onRetryPreview={retryPreview}
+                      />
+                    </div>
+                  </ResizablePanel>
+                  <ResizableHandle withHandle />
 
-            {/* Clip selecionado e exportação */}
-            <aside className="border-t p-3 lg:overflow-y-auto lg:border-l lg:border-t-0">
-              <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="clip">Clip</TabsTrigger>
-                  <TabsTrigger value="export">Export</TabsTrigger>
-                </TabsList>
-                <TabsContent value="clip" className="pt-2">
-                  <ClipInspector
-                    timeline={draft}
-                    videos={videos}
-                    linkId={selected}
-                    actions={actions}
-                    onTrim={(id, edge, delta) =>
-                      apply(T.trim(draft, id, edge, delta, durationOf)?.timeline ?? null)
-                    }
-                  />
-                </TabsContent>
-                <TabsContent value="export" className="pt-2">
-                  <ExportPanel
-                    timeline={draft}
-                    videos={videos}
-                    userType={userType}
-                    remainingOperations={session.user.remaining_operations}
-                    exporting={exportTimeline.isPending}
-                    onOutputChange={(output) => apply({ ...draft, output })}
-                    onExport={startExport}
-                    tasks={taskList}
-                    cancellingId={cancellingId}
-                    onCancelTask={cancel}
-                  />
-                </TabsContent>
-              </Tabs>
-            </aside>
-          </div>
+                  {/* Clip selecionado e exportação */}
+                  <ResizablePanel
+                    id="inspector"
+                    order={3}
+                    ref={inspectorRef}
+                    collapsible
+                    collapsedSize={0}
+                    defaultSize={Math.max(22, inspectorMin)}
+                    minSize={inspectorMin}
+                    maxSize={40}
+                    onCollapse={() => setInspectorOpen(false)}
+                    onExpand={() => setInspectorOpen(true)}
+                  >
+                    <div className="size-full overflow-y-auto p-3">
+                      <Tabs value={tab} onValueChange={setTab}>
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="clip">Clip</TabsTrigger>
+                          <TabsTrigger value="export">Export</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="clip" className="pt-2">
+                          <ClipInspector
+                            timeline={draft}
+                            videos={videos}
+                            linkId={selected}
+                            actions={actions}
+                            onTrim={(id, edge, delta) =>
+                              apply(T.trim(draft, id, edge, delta, durationOf)?.timeline ?? null)
+                            }
+                          />
+                        </TabsContent>
+                        <TabsContent value="export" className="pt-2">
+                          <ExportPanel
+                            timeline={draft}
+                            videos={videos}
+                            userType={userType}
+                            remainingOperations={session.user.remaining_operations}
+                            exporting={exportTimeline.isPending}
+                            onOutputChange={(output) => apply({ ...draft, output })}
+                            onExport={startExport}
+                            tasks={taskList}
+                            cancellingId={cancellingId}
+                            onCancelTask={cancel}
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
 
-          {/* Timeline */}
-          <div className="border-t">
-            <div className="flex flex-wrap items-center gap-1 border-b px-2 py-1">
-              <IconButton label="Split at playhead (S)" onClick={splitAtPlayhead} disabled={duration === 0}>
-                <Scissors />
-              </IconButton>
-              <IconButton
-                label="Delete clip (Del)"
-                onClick={() => selected && actions.remove(selected)}
-                disabled={!selected}
+              {/* Timeline: ferramentas e transporte numa só linha */}
+              <ResizablePanel
+                id="timeline"
+                order={2}
+                defaultSize={timelineDefault}
+                minSize={timelineMin}
+                maxSize={75}
               >
-                <Trash2 />
-              </IconButton>
-              {groupSize > 1 ? (
-                <IconButton label="Unlink audio and video" onClick={() => selected && actions.unlink(selected)}>
-                  <Unlink />
-                </IconButton>
-              ) : (
-                <IconButton
-                  label="Link audio and video"
-                  onClick={() => selected && actions.link(selected)}
-                  disabled={!selected || !T.linkCandidate(draft, selected)}
-                >
-                  <Link2 />
-                </IconButton>
-              )}
+                <div className="flex size-full flex-col">
+                  <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b px-2 py-1">
+                    <div className="flex items-center gap-1">
+                      <IconButton label="Split at playhead (S)" onClick={splitAtPlayhead} disabled={duration === 0}>
+                        <Scissors />
+                      </IconButton>
+                      <IconButton
+                        label="Delete clip (Del)"
+                        onClick={() => selected && actions.remove(selected)}
+                        disabled={!selected}
+                      >
+                        <Trash2 />
+                      </IconButton>
+                      {groupSize > 1 ? (
+                        <IconButton label="Unlink audio and video" onClick={() => selected && actions.unlink(selected)}>
+                          <Unlink />
+                        </IconButton>
+                      ) : (
+                        <IconButton
+                          label="Link audio and video"
+                          onClick={() => selected && actions.link(selected)}
+                          disabled={!selected || !T.linkCandidate(draft, selected)}
+                        >
+                          <Link2 />
+                        </IconButton>
+                      )}
+                    </div>
 
-              <div className="ml-auto flex items-center gap-2">
-                <ZoomOut className="size-4 text-muted-foreground" aria-hidden />
-                <Slider
-                  aria-label="Timeline zoom"
-                  className="w-32"
-                  min={5}
-                  max={200}
-                  step={1}
-                  value={[zoom]}
-                  onValueChange={([z]) => setZoom(z)}
-                />
-                <ZoomIn className="size-4 text-muted-foreground" aria-hidden />
-              </div>
-            </div>
-            <Timeline
-              timeline={draft}
-              videos={videos}
-              time={time}
-              zoom={zoom}
-              selected={selected}
-              onSeek={seek}
-              onSelect={select}
-              onEdit={apply}
-              onInsert={insert}
-              actions={actions}
-            />
-          </div>
-        </>
+                    <div className="flex items-center gap-1">
+                      <IconButton label="Go to start" onClick={() => seek(0)}>
+                        <SkipBack />
+                      </IconButton>
+                      <IconButton label="Previous frame (←)" onClick={() => seek(time - frame)}>
+                        <StepBack />
+                      </IconButton>
+                      <IconButton
+                        label={playing ? "Pause (Space)" : "Play (Space)"}
+                        onClick={() => setPlaying(!playing)}
+                        disabled={duration === 0}
+                      >
+                        {playing ? <Pause /> : <Play />}
+                      </IconButton>
+                      <IconButton label="Next frame (→)" onClick={() => seek(time + frame)}>
+                        <StepForward />
+                      </IconButton>
+                      <IconButton label="Go to end" onClick={() => seek(duration)}>
+                        <SkipForward />
+                      </IconButton>
+                      <TimeField id="playhead" seconds={time} max={duration} onCommit={seek} className="ml-2 w-32" />
+                      <span className="whitespace-nowrap font-mono text-xs text-muted-foreground" data-testid="timeline-duration">
+                        / {formatTimecode(duration)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                      <ZoomOut className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <Slider
+                        aria-label="Timeline zoom"
+                        className="w-24 xl:w-32"
+                        min={5}
+                        max={200}
+                        step={1}
+                        value={[zoom]}
+                        onValueChange={([z]) => setZoom(z)}
+                      />
+                      <ZoomIn className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    </div>
+                  </div>
+                  <div className="min-h-0 flex-1">
+                    <Timeline
+                      timeline={draft}
+                      videos={videos}
+                      time={time}
+                      zoom={zoom}
+                      selected={selected}
+                      onSeek={seek}
+                      onSelect={select}
+                      onEdit={apply}
+                      onInsert={insert}
+                      actions={actions}
+                    />
+                  </div>
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          )}
+        </div>
       )}
     </div>
   );
