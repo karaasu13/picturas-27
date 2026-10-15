@@ -2,11 +2,11 @@
 
 Ronda de testes com Playwright no branch `feature/timeline`, a 15/10/2026, contra a stack local (`docker compose`), em Google Chrome 155 e no Firefox do Playwright 1.48.
 
-Depois da primeira ronda, os bugs 1 a 5 foram corrigidos e a suite voltou a correr completa (ver «Segunda ronda»). Ao validar a correção do bug 3 apareceu um problema novo, o 6, que ficou por corrigir.
+Depois da primeira ronda, os bugs 1 a 5 foram corrigidos e a suite voltou a correr completa (ver «Segunda ronda»). Ao validar a correção do bug 3 apareceu um problema novo, o 6, corrigido depois; a suite correu completa uma terceira vez (ver «Terceira ronda»).
 
 ## Resultado
 
-**Segunda ronda, depois das correções: 34 testes passam e nenhum falha.** 1 é saltado no Firefox (o Retry, que usa o Docker).
+**Terceira ronda, depois de corrigir o bug 6: 34 testes passam e nenhum falha.** 1 é saltado no Firefox (o Retry, que usa o Docker).
 
 | Área | Testes | Chrome | Firefox |
 |---|---|---|---|
@@ -45,6 +45,10 @@ Mudanças nos testes:
 - `quota.spec.ts`: o teste do bug 2 deixou de ter `test.fail` e confirma também o aviso e que o projeto deixou de existir. O teste de apagar durante uma exportação passou a apagar a partir do editor (antes tinha de ir à página do projeto por causa do bug 2).
 - O botão "…" do projeto é encontrado pelo nome acessível (bug 5), e não pela posição.
 
+### Terceira ronda
+
+Depois da correção do bug 6 (`projects` e as 15 ferramentas de imagem reconstruídos), a suite correu toda de uma vez, nos dois browsers. Passaram todos à primeira, em 8,2 min: 22 no Chrome e 12 no Firefox, mais o saltado. Os testes não mudaram.
+
 ## Bugs encontrados
 
 Ordenados por impacto na experiência do utilizador.
@@ -56,7 +60,7 @@ Ordenados por impacto na experiência do utilizador.
 | 3 | Pedidos das ferramentas de imagem perdem-se se a ligação cair a meio | Corrigido (`31db6f0`) |
 | 4 | Textos em português na interface em inglês | Corrigido (`b0c1843`) |
 | 5 | O botão "…" de cada projeto não tem nome acessível | Corrigido (`49e9547`) |
-| 6 | Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar | **Por corrigir** (encontrado ao validar o 3; fica para a próxima sessão) |
+| 6 | Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar | Corrigido (`b19e63e`) |
 
 ### 1. Depois de ~50 contas, as contas novas deixam de conseguir enviar ficheiros (SeaweedFS sem volumes)
 
@@ -144,7 +148,7 @@ Teste: `quota.spec.ts`, "deleting the project from the sidebar while in the vide
 
 ### 6. Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar
 
-**Impacto: médio. Não corrigido.** Encontrado ao validar o bug 3.
+**Impacto: médio.** Encontrado ao validar o bug 3.
 - O ack manual cobre a queda da ligação, mas não um reinício do próprio RabbitMQ.
 - O `projects` publica os pedidos às ferramentas sem `persistent: true` (`projects/utils/rabbit_mq.js:25`), e as ferramentas publicam as respostas sem `delivery_mode=2` (`Tools/utils/rabbit_mq.py`).
 - As filas são duráveis, mas as mensagens não persistentes ficam só em memória e perdem-se quando o broker reinicia. O processamento do projeto fica preso.
@@ -155,7 +159,16 @@ Teste: `quota.spec.ts`, "deleting the project from the sidebar while in the vide
 2. Pedir o processamento e, 2 s depois, correr `docker restart picturas-rabbitmq-1`.
 3. A ferramenta e o `projects` voltam a ligar-se, a fila `upgrade_ai_queue` fica vazia, e o resultado nunca chega (esperei 10 min).
 
-**Correção proposta (não aplicada):** publicar como persistente nos dois sentidos, ou seja, `{ persistent: true }` no `channel.publish` de `projects/utils/rabbit_mq.js` e `properties=pika.BasicProperties(delivery_mode=2)` no `basic_publish` de `Tools/utils/rabbit_mq.py`.
+**Correção:**
+- Mensagens persistentes nos dois sentidos: `{ persistent: true }` no `channel.publish` de `projects/utils/rabbit_mq.js` (pedidos às ferramentas) e `delivery_mode=2` no `basic_publish` de `Tools/utils/rabbit_mq.py` (respostas).
+- O `Tools/utils/rabbit_mq.py` é partilhado por todas as ferramentas de imagem, incluindo o `expand_ai`. O `watermark` é uma imagem externa (`prcsousa/picturas-watermark-tool-ms`) e fica de fora.
+- As filas já eram duráveis: as 22 das `definitions.json` estão `durable: true`, e o `rabbitmqctl list_queues` confirma-o no broker a correr.
+
+**Validação:**
+- Antes da correção, com o mesmo script: `docker restart picturas-rabbitmq-1` 2 s depois de pedir o processamento, e nenhum resultado em 180 s.
+- Depois da correção: o pedido sobrevive ao reinício, a ferramenta repete-o ao voltar a ligar-se, e o resultado chega aos 18 s.
+- Resposta: com o `projects` parado, a resposta da ferramenta ficou na `project_queue` (1 mensagem antes e depois do reinício do RabbitMQ) e foi processada quando o `projects` voltou (resultado aos 16 s).
+- Fio de execução (revisão do bug 3): com o pika instrumentado, só o callback da ferramenta corre na thread de processamento; o `basic_publish` e o `basic_ack` correm na thread da ligação, e não há `basic_nack`. Por isso não é preciso o `add_callback_threadsafe`.
 
 ## Observações (não são bugs)
 
@@ -191,3 +204,12 @@ npx playwright show-trace test-results/<pasta-do-teste>/trace.zip   # um trace s
 ```
 
 No relatório, cada teste tem o vídeo embutido e um botão para abrir o trace (linha do tempo com capturas, DOM, rede e consola de cada passo). As pastas `playwright-report/` e `test-results/` não vão para o git.
+
+### Demonstração gravada
+
+`demo/demo.spec.ts` não faz parte da suite (o `testDir` é `./tests`). Percorre o editor devagar, com legendas no ecrã: upload, corte (split + delete), velocidade 2×, concatenação com um vídeo sem áudio, reenquadramento com crop e pad, undo/redo, exportação até Done e reprodução do resultado. Usa o Chrome do host, com janela, e grava o browser a 1920×1080.
+
+```sh
+cd e2e
+DISPLAY=:0 npx playwright test -c demo    # grava ~/picturas-demo/demo.webm
+```
