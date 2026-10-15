@@ -6,8 +6,8 @@ Ponto de situação do branch `feature/timeline` a 15/10/2026, para retomar o tr
 
 - Tudo está no branch `feature/timeline`, criado a partir da `main` (`7b5a938`). **Ainda não houve push, PR nem merge.**
 - Remotes: `grupo` é o repo do grupo (karaasu13/picturas-27); `origin` (picturas-um/picturas-27) **não se mexe**.
-- As 4 fases do plano estão feitas, a ronda de testes com Playwright também, e os bugs 1 a 5 dessa ronda estão corrigidos.
-- **Próximo passo:** corrigir o bug 6 (ver «Estado dos bugs»). O PR e o merge ficam para quando o utilizador pedir.
+- As 4 fases do plano estão feitas, a ronda de testes com Playwright também, e os bugs 1 a 6 dessa ronda estão corrigidos.
+- **Próximo passo:** o PR e o merge, quando o utilizador pedir.
 
 Commits do branch (`git log --oneline main..HEAD`), do mais antigo para o mais recente:
 
@@ -31,6 +31,7 @@ Commits do branch (`git log --oneline main..HEAD`), do mais antigo para o mais r
 | `31db6f0` | bug 3: ferramentas de imagem com ack manual |
 | `56b0866` | bug 1: um volume de 128 MB por bucket no SeaweedFS |
 | `7e075d7` | relatório E2E da segunda ronda |
+| `b19e63e` | bug 6: pedidos e respostas das ferramentas de imagem persistentes |
 
 ## Decisões
 
@@ -126,7 +127,7 @@ undo, redo              // cópias de {output, faixas}, no máximo 50
   - o worker de vídeo (`8bc5f7c`);
   - as ferramentas de imagem (`9c7b310`).
 
-  As ferramentas de imagem passaram também a confirmar o pedido só depois de enviada a resposta (`31db6f0`, ver o bug 3).
+  As ferramentas de imagem passaram também a confirmar o pedido só depois de enviada a resposta (`31db6f0`, ver o bug 3), e os pedidos e as respostas passaram a ser mensagens persistentes (`b19e63e`, ver o bug 6).
 - **nginx** (`5590514`): `resolver 127.0.0.11`, e `proxy_pass` com variável para o frontend, o api_gateway e o ws_gateway. Assim um contentor recriado com outro IP não deixa o nginx a apontar para o antigo. O seaweedfs ficou como estava.
 - **SeaweedFS** (`56b0866`): `-master.volumeSizeLimitMB=128` e `WEED_MASTER_VOLUME_GROWTH_COPY_1=1`, ou seja, um volume de 128 MB por bucket (ver o bug 1).
 
@@ -139,12 +140,11 @@ undo, redo              // cópias de {output, faixas}, no máximo 50
 | 3 | Pedidos das ferramentas de imagem perdem-se se a ligação cair a meio | Corrigido (`31db6f0`) |
 | 4 | Textos em português na interface em inglês | Corrigido (`b0c1843`) |
 | 5 | Botão "…" de cada projeto sem nome acessível | Corrigido (`49e9547`) |
-| 6 | Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar | **Por corrigir, na próxima sessão** |
+| 6 | Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar | Corrigido (`b19e63e`); validado com um reinício do RabbitMQ a meio de um pedido |
 
-Bug 6, a correção proposta:
-- `projects/utils/rabbit_mq.js:25` publica sem `{ persistent: true }`;
-- `Tools/utils/rabbit_mq.py` publica as respostas sem `pika.BasicProperties(delivery_mode=2)`;
-- as filas são duráveis, mas as mensagens não persistentes perdem-se quando o broker reinicia. O caminho do vídeo (`projects/utils/video_msg.js`) já usa mensagens persistentes.
+Bug 6: as filas já eram duráveis, mas os pedidos (`projects/utils/rabbit_mq.js`) e as respostas (`Tools/utils/rabbit_mq.py`) saíam como mensagens transitórias, que o broker descarta ao reiniciar. Passaram a ser persistentes, como no caminho do vídeo (`projects/utils/video_msg.js`).
+
+Na revisão do bug 3 confirmou-se que a thread de processamento não chama o pika: as respostas e o `basic_ack` saem da thread da ligação, por isso não é preciso o `add_callback_threadsafe`.
 
 Outras observações do relatório, que não são bugs:
 - só há um worker de render, por isso as exportações esperam umas pelas outras;
@@ -162,7 +162,8 @@ Outras observações do relatório, que não são bugs:
 
 ### E2E (Playwright)
 
-Os testes estão em `e2e/` e correm contra a stack local (`docker compose up -d`, `https://localhost:8080`). Resultado da última corrida: 34 passam, 1 é saltado no Firefox, nenhum falha.
+Os testes estão em `e2e/` e correm contra a stack local (`docker compose up -d`, `https://localhost:8080`). Resultado da última corrida (terceira ronda, depois do bug 6): 34 passam, 1 é saltado no Firefox, nenhum falha.
+- **Demonstração gravada:** `e2e/demo/demo.spec.ts`, fora da suite. Corre no host com `DISPLAY=:0 npx playwright test -c demo` e grava `~/picturas-demo/demo.webm` (ver o `e2e/REPORT.md`).
 - **Fixtures:** `npm run fixtures` gera os vídeos de teste com ffmpeg; não vão para o git.
 - **Onde correm:** a suite oficial (Chrome + Firefox) corre na imagem local `picturas-e2e-runner:local`, porque o host não tem o Chrome em `/opt/google/chrome` (`channel: "chrome"`).
   - A imagem é `mcr.microsoft.com/playwright:v1.48.0-jammy` com `npm install` em `/work` e `npx playwright install chrome`.
@@ -196,7 +197,7 @@ PATH=~/.local/opt/node-v22.23.3-linux-x64/bin:$PATH npx playwright show-trace te
 - O sistema tem Node 18.19 **sem npm**, e o `sudo` pede senha. Tudo o que foi instalado ficou só para o utilizador, **fora do PATH**:
   - **Node 22.23.3 com npm:** `~/.local/opt/node-v22.23.3-linux-x64/bin`. Para o usar: `PATH=~/.local/opt/node-v22.23.3-linux-x64/bin:$PATH`.
   - **Google Chrome 155,** extraído do `.deb` oficial sem o instalar: `~/.local/opt/google-chrome-deb/opt/google/chrome/chrome`.
-- **Playwright no host:** `e2e/node_modules` (Playwright 1.48), com o Firefox do Playwright em `~/.cache/ms-playwright`.
+- **Playwright no host:** `e2e/node_modules` (Playwright 1.48), com o Firefox e o ffmpeg do Playwright (o ffmpeg é preciso para gravar vídeo) em `~/.cache/ms-playwright`.
 - **Playwright MCP:** `@playwright/mcp@0.0.83`, registado com `claude mcp add --scope local`.
   - Fica em `~/.claude.json`, neste projeto, e não no repo.
   - Usa esse Chrome com `DISPLAY=:0.0`, por isso o browser fica visível. As ferramentas só aparecem numa sessão nova do Claude Code.
