@@ -39,7 +39,9 @@ class Rabbit_MQ:
     def _publish(self, msg, queue):
         self._channel.queue_declare(queue=self._queue, durable=True)
 
-        self._channel.basic_publish(exchange="picturas", routing_key=queue, body=msg)
+        # Persistente: as filas são duráveis, mas uma mensagem transitória perde-se se o RabbitMQ reiniciar
+        self._channel.basic_publish(exchange="picturas", routing_key=queue, body=msg,
+                                    properties=pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent))
 
     def _handle(self, callback, ch, method, properties, body):
         # O processamento corre noutra thread para a ligação continuar a responder aos heartbeats:

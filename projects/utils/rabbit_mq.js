@@ -22,7 +22,8 @@ function send_rabbit_msg(msg, queue) {
                 durable: true
             });
 
-            channel.publish(exchange, queue, Buffer.from(JSON.stringify(msg)));
+            // Persistente: as filas são duráveis, mas uma mensagem transitória perde-se se o RabbitMQ reiniciar
+            channel.publish(exchange, queue, Buffer.from(JSON.stringify(msg)), { persistent: true });
         });
         
         setTimeout(() => {
