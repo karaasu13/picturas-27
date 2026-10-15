@@ -90,9 +90,19 @@ export function Timeline({
     const ro = new ResizeObserver(update);
     ro.observe(el);
     el.addEventListener("scroll", update, { passive: true });
+    // A roda do rato (vertical) desloca a timeline na horizontal; o trackpad na
+    // horizontal e o Ctrl+roda (zoom do browser) ficam como estão
+    const wheel = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      // O Firefox pode dar a roda em linhas em vez de píxeis
+      el.scrollLeft += e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 16 : e.deltaY;
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
     return () => {
       ro.disconnect();
       el.removeEventListener("scroll", update);
+      el.removeEventListener("wheel", wheel);
     };
   }, []);
 
