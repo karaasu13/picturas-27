@@ -6,7 +6,7 @@ Ponto de situação do branch `feature/timeline` a 15/10/2026, para retomar o tr
 
 - Tudo está no branch `feature/timeline`, criado a partir da `main` (`7b5a938`). **Ainda não houve push, PR nem merge.**
 - Remotes: `grupo` é o repo do grupo (karaasu13/picturas-27); `origin` (picturas-um/picturas-27) **não se mexe**.
-- As 4 fases do plano estão feitas, a ronda de testes com Playwright também, e os bugs 1 a 6 dessa ronda estão corrigidos.
+- As 4 fases do plano estão feitas, a ronda de testes com Playwright também, e os bugs 1 a 7 estão corrigidos.
 - **Próximo passo:** o PR e o merge, quando o utilizador pedir.
 
 Commits do branch (`git log --oneline main..HEAD`), do mais antigo para o mais recente:
@@ -141,6 +141,7 @@ undo, redo              // cópias de {output, faixas}, no máximo 50
 | 4 | Textos em português na interface em inglês | Corrigido (`b0c1843`) |
 | 5 | Botão "…" de cada projeto sem nome acessível | Corrigido (`49e9547`) |
 | 6 | Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar | Corrigido (`b19e63e`); validado com um reinício do RabbitMQ a meio de um pedido |
+| 7 | Não dá para criar um projeto a partir de um vídeo (só aceitava imagens) | Corrigido (`2b75488`); encontrado num teste manual |
 
 Bug 6: as filas já eram duráveis, mas os pedidos (`projects/utils/rabbit_mq.js`) e as respostas (`Tools/utils/rabbit_mq.py`) saíam como mensagens transitórias, que o broker descarta ao reiniciar. Passaram a ser persistentes, como no caminho do vídeo (`projects/utils/video_msg.js`).
 

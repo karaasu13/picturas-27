@@ -61,6 +61,7 @@ Ordenados por impacto na experiência do utilizador.
 | 4 | Textos em português na interface em inglês | Corrigido (`b0c1843`) |
 | 5 | O botão "…" de cada projeto não tem nome acessível | Corrigido (`49e9547`) |
 | 6 | Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar | Corrigido (`b19e63e`) |
+| 7 | Não dá para criar um projeto a partir de um vídeo | Corrigido (`2b75488`) |
 
 ### 1. Depois de ~50 contas, as contas novas deixam de conseguir enviar ficheiros (SeaweedFS sem volumes)
 
@@ -169,6 +170,20 @@ Teste: `quota.spec.ts`, "deleting the project from the sidebar while in the vide
 - Depois da correção: o pedido sobrevive ao reinício, a ferramenta repete-o ao voltar a ligar-se, e o resultado chega aos 18 s.
 - Resposta: com o `projects` parado, a resposta da ferramenta ficou na `project_queue` (1 mensagem antes e depois do reinício do RabbitMQ) e foi processada quando o `projects` voltou (resultado aos 16 s).
 - Fio de execução (revisão do bug 3): com o pika instrumentado, só o callback da ferramenta corre na thread de processamento; o `basic_publish` e o `basic_ack` correm na thread da ligação, e não há `basic_nack`. Por isso não é preciso o `add_callback_threadsafe`.
+
+### 7. Não dá para criar um projeto a partir de um vídeo
+
+**Impacto: alto.** Encontrado num teste manual, depois da terceira ronda; a suite cria os projetos pela API e não o apanhava.
+- O ecrã inicial e a janela "Create New Project" só aceitavam imagens ou um .zip, e nada indicava que a app trabalha com vídeo.
+- O Create ficava desativado sem pelo menos uma imagem. Para editar um vídeo era preciso criar o projeto com uma imagem qualquer, abri-lo e carregar em **Video editor**.
+
+**Correção:**
+- O ecrã inicial e a janela aceitam também MP4, MOV e AVI, e os textos dizem-no.
+- Ao criar, o projeto recebe as imagens, os vídeos são enviados um a um e a página abre o editor de vídeo.
+- Um vídeo que falhe mostra o erro do servidor (por exemplo, um anónimo recebe "Create an account to continue") e não impede os outros nem duplica o projeto.
+- O Create fica desativado enquanto o pedido decorre. A janela "Add images" do projeto continua só com imagens.
+
+**Validação:** no Firefox, com um evento drop real no ecrã inicial. Dois vídeos levam ao editor com os dois na biblioteca; uma imagem continua a levar à página do projeto.
 
 ## Observações (não são bugs)
 
