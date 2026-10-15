@@ -62,6 +62,7 @@ Ordenados por impacto na experiência do utilizador.
 | 5 | O botão "…" de cada projeto não tem nome acessível | Corrigido (`49e9547`) |
 | 6 | Pedidos das ferramentas de imagem perdem-se se o RabbitMQ reiniciar | Corrigido (`b19e63e`) |
 | 7 | Não dá para criar um projeto a partir de um vídeo | Corrigido (`2b75488`) |
+| 8 | O login falha para todas as contas | Corrigido (`be93c4c`) |
 
 ### 1. Depois de ~50 contas, as contas novas deixam de conseguir enviar ficheiros (SeaweedFS sem volumes)
 
@@ -184,6 +185,16 @@ Teste: `quota.spec.ts`, "deleting the project from the sidebar while in the vide
 - O Create fica desativado enquanto o pedido decorre. A janela "Add images" do projeto continua só com imagens.
 
 **Validação:** no Firefox, com um evento drop real no ecrã inicial. Dois vídeos levam ao editor com os dois na biblioteca; uma imagem continua a levar à página do projeto.
+
+### 8. O login falha para todas as contas
+
+**Impacto: crítico.** Encontrado num teste manual; vinha da `main`. A suite não o apanhava porque injeta a sessão no `localStorage` em vez de fazer login.
+- Qualquer login, mesmo com a palavra-passe certa, mostrava "Erro no login — Error logging in". Só o registo abria sessão.
+- **Causa:** o `getOneEmail` (`users/controllers/user.js`) devolvia o utilizador já passado pelo `toJSON` do modelo, que apaga o `password_hash`. O `bcrypt.compare` recebia `undefined` e lançava uma exceção; o `users` respondia 701 e o gateway 500.
+
+**Correção:** o `getOneEmail`, que só o login usa, devolve também o `password_hash`; a rota já o tira da resposta.
+
+**Validação:** a palavra-passe certa devolve o utilizador e o JWT, sem campos de hash; uma errada responde 401 no `users`; o formulário de login leva ao dashboard.
 
 ## Observações (não são bugs)
 
