@@ -107,6 +107,7 @@ export function TimelinePreview({
         >
           <video
             ref={videoRef}
+            data-testid="preview-video"
             muted
             playsInline
             preload="auto"
@@ -116,7 +117,7 @@ export function TimelinePreview({
               (!clip || !ready) && "invisible",
             )}
           />
-          <audio ref={audioRef} preload="auto" />
+          <audio ref={audioRef} preload="auto" data-testid="preview-audio" />
 
           {clip && !ready && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-white/80">
@@ -166,7 +167,9 @@ export function TimelinePreview({
         </TransportButton>
 
         <TimeField id="playhead" seconds={time} max={duration} onCommit={seek} className="ml-2 w-32" />
-        <span className="font-mono text-xs text-muted-foreground">/ {formatTimecode(duration)}</span>
+        <span className="font-mono text-xs text-muted-foreground" data-testid="timeline-duration">
+          / {formatTimecode(duration)}
+        </span>
       </div>
     </div>
   );

@@ -55,7 +55,7 @@ export function VideoTaskList({
         const result = task.outputVideoId ? videos.get(task.outputVideoId) : undefined;
         const info = summary(task);
         return (
-          <li key={task._id} className="rounded-lg border px-3 py-2 flex flex-col gap-1">
+          <li key={task._id} data-testid="export-task" className="rounded-lg border px-3 py-2 flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className={cn("inline-flex items-center gap-1 text-xs font-medium shrink-0", style.className)}>
                 {style.icon}
