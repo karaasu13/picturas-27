@@ -1,8 +1,19 @@
-// Vídeos do projeto e tarefas de corte (UC-VID-001).
+// Vídeos do projeto, timeline do editor e tarefas de exportação.
 import axios from "axios";
 import { api } from "./axios";
+import type { Formato, Output, TimelineData } from "./timeline";
 
-export type VideoFormat = "mp4" | "mov" | "avi";
+export type VideoFormat = Formato;
+
+export type PreviewState = "pending" | "ready" | "failed" | "missing";
+
+export interface SpriteInfo {
+  interval: number; // segundos entre miniaturas
+  cols: number;
+  count: number;
+  width: number; // tamanho de cada miniatura
+  height: number;
+}
 
 export interface ProjectVideo {
   _id: string;
@@ -15,26 +26,41 @@ export interface ProjectVideo {
   fps: number;
   codec: "h264" | "hevc";
   hasAudio: boolean;
-  source: "upload" | "cut";
-  parentVideoId: string | null;
+  source: "upload" | "render";
   createdAt: string;
   url: string | null;
+  // Pré-visualização (proxy H.264 480p, miniaturas e forma de onda): o
+  // editor só usa estes ficheiros; a exportação usa sempre o original
+  preview: {
+    state: PreviewState;
+    proxyUrl: string | null;
+    spriteUrl: string | null;
+    waveformUrl: string | null;
+    sprite: SpriteInfo | null;
+  };
 }
 
-export type VideoTaskState =
-  | "queued"
-  | "processing"
-  | "done"
-  | "failed"
-  | "cancelled";
+export interface Waveform {
+  rate: number; // picos por segundo
+  peaks: number[]; // 0-100
+}
+
+export interface TimelineResponse extends TimelineData {
+  version: number;
+  canUndo: boolean;
+  canRedo: boolean;
+  duration: number;
+}
+
+export type VideoTaskState = "queued" | "processing" | "done" | "failed" | "cancelled";
 
 export interface VideoTask {
   _id: string;
   projectId: string;
-  videoId: string;
-  videoName: string;
-  op: "cut";
-  params: { start: number; end: number };
+  videoIds: string[];
+  name: string;
+  op: "render";
+  params: { output: Output | null; duration: number | null };
   state: VideoTaskState;
   outputVideoId: string | null;
   error: { code: string; message: string } | null;
@@ -47,15 +73,15 @@ export interface VideoTask {
 export const ACTIVE_TASK_STATES: VideoTaskState[] = ["queued", "processing"];
 
 export const TASK_STATE_LABELS: Record<VideoTaskState, string> = {
-  queued: "Em Fila",
-  processing: "A processar",
-  done: "Concluído",
-  failed: "Falhou",
-  cancelled: "Cancelado",
+  queued: "Queued",
+  processing: "Processing",
+  done: "Done",
+  failed: "Failed",
+  cancelled: "Cancelled",
 };
 
-// Mesmas regras do backend (REQ-VID-PLAT-001 e UC-VID-001), para avisar
-// logo no browser. O backend continua a ser quem decide.
+// Mesmas regras do backend, para avisar logo no browser. O backend continua
+// a ser quem decide.
 export const VIDEO_RULES = {
   accept: {
     "video/mp4": [".mp4"],
@@ -64,19 +90,30 @@ export const VIDEO_RULES = {
     "video/avi": [".avi"],
   },
   maxBytes: 2 * 1024 * 1024 * 1024,
-  freeMaxDuration: 10 * 60,
-  minCut: 1,
   minResult: 5,
+};
+
+// Limites da exportação por perfil (lado maior x lado menor do output)
+export const EXPORT_LIMITS = {
+  free: { maxDuration: 10 * 60, maxLong: 1920, maxShort: 1080, maxSources: 5 },
+  premium: { maxDuration: Infinity, maxLong: 4096, maxShort: 4096, maxSources: 20 },
 };
 
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 const base = (uid: string, pid: string) => `/projects/${uid}/${pid}`;
 
+/** Código de erro do backend ({ code, message }), se houver. */
+export function videoErrorCode(error: unknown): string | null {
+  if (!axios.isAxiosError(error)) return null;
+  const code = error.response?.data?.code;
+  return typeof code === "string" ? code : null;
+}
+
 /** Mensagem do backend ({ code, message }) ou uma genérica. */
 export function videoErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     if (!error.response) {
-      return "Não foi possível comunicar com o servidor. Verifica a tua ligação e tenta novamente.";
+      return "Couldn't reach the server. Check your connection and try again.";
     }
     const data = error.response.data;
     if (data && typeof data === "object" && typeof data.message === "string") {
@@ -91,6 +128,11 @@ export const fetchVideos = async (uid: string, pid: string, token: string) => {
   const resp = await api.get<ProjectVideo[]>(`${base(uid, pid)}/videos`, {
     headers: auth(token),
   });
+  return resp.data;
+};
+
+export const fetchWaveform = async (url: string) => {
+  const resp = await axios.get<Waveform>(url);
   return resp.data;
 };
 
@@ -138,34 +180,96 @@ export const deleteVideo = async ({
   });
 };
 
-export const requestVideoCut = async ({
+export const regeneratePreview = async ({
   uid,
   pid,
   token,
   videoId,
-  start,
-  end,
 }: {
   uid: string;
   pid: string;
   token: string;
   videoId: string;
-  start: number;
-  end: number;
 }) => {
-  const resp = await api.post<VideoTask>(
-    `${base(uid, pid)}/videos/${videoId}/cut`,
-    { start, end },
+  const resp = await api.post<ProjectVideo>(`${base(uid, pid)}/videos/${videoId}/preview`, {}, {
+    headers: auth(token),
+  });
+  return resp.data;
+};
+
+// ------------------------------------------------------------- timeline
+
+export const fetchTimeline = async (uid: string, pid: string, token: string) => {
+  const resp = await api.get<TimelineResponse>(`${base(uid, pid)}/timeline`, {
+    headers: auth(token),
+  });
+  return resp.data;
+};
+
+export const saveTimeline = async ({
+  uid,
+  pid,
+  token,
+  version,
+  timeline,
+}: {
+  uid: string;
+  pid: string;
+  token: string;
+  version: number;
+  timeline: TimelineData;
+}) => {
+  const resp = await api.put<TimelineResponse>(
+    `${base(uid, pid)}/timeline`,
+    { version, output: timeline.output, faixas: timeline.faixas },
     { headers: auth(token) },
   );
   return resp.data;
 };
 
-export const fetchVideoTasks = async (
-  uid: string,
-  pid: string,
-  token: string,
-) => {
+export const timelineHistoryStep = async ({
+  uid,
+  pid,
+  token,
+  version,
+  step,
+}: {
+  uid: string;
+  pid: string;
+  token: string;
+  version: number;
+  step: "undo" | "redo";
+}) => {
+  const resp = await api.post<TimelineResponse>(
+    `${base(uid, pid)}/timeline/${step}`,
+    { version },
+    { headers: auth(token) },
+  );
+  return resp.data;
+};
+
+export const exportTimeline = async ({
+  uid,
+  pid,
+  token,
+  version,
+}: {
+  uid: string;
+  pid: string;
+  token: string;
+  version: number;
+}) => {
+  const resp = await api.post<VideoTask>(
+    `${base(uid, pid)}/timeline/export`,
+    { version },
+    { headers: auth(token) },
+  );
+  return resp.data;
+};
+
+// --------------------------------------------------------------- tarefas
+
+export const fetchVideoTasks = async (uid: string, pid: string, token: string) => {
   const resp = await api.get<VideoTask[]>(`${base(uid, pid)}/video-tasks`, {
     headers: auth(token),
   });
@@ -183,16 +287,15 @@ export const cancelVideoTask = async ({
   token: string;
   taskId: string;
 }) => {
-  const resp = await api.delete<VideoTask>(
-    `${base(uid, pid)}/video-tasks/${taskId}`,
-    { headers: auth(token) },
-  );
+  const resp = await api.delete<VideoTask>(`${base(uid, pid)}/video-tasks/${taskId}`, {
+    headers: auth(token),
+  });
   return resp.data;
 };
 
 // ------------------------------------------------------------- tempos
 
-/** 75.5 -> "00:01:15.500" (formato do campo do UC-VID-001) */
+/** 75.5 -> "00:01:15.500" */
 export function formatTimecode(seconds: number) {
   const totalMs = Math.max(0, Math.round(seconds * 1000));
   const ms = totalMs % 1000;
@@ -235,25 +338,4 @@ export function formatBytes(bytes: number) {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
   if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
-
-/**
- * Validação do intervalo no browser (mesmas regras do backend).
- * Devolve null se estiver bem, ou a mensagem a mostrar.
- */
-export function validateCutInterval(
-  start: number | null,
-  end: number | null,
-  duration: number,
-): string | null {
-  if (start === null || end === null) {
-    return "Indica o início e o fim no formato hh:mm:ss.mmm.";
-  }
-  if (start <= 0 || end >= duration || end - start <= VIDEO_RULES.minCut) {
-    return "O intervalo a eliminar deve ser interior ao vídeo e ter uma duração superior a 1 segundo.";
-  }
-  if (duration - (end - start) < VIDEO_RULES.minResult) {
-    return "O vídeo resultante é demasiado curto. O resultado final deve ter pelo menos 5 segundos.";
-  }
-  return null;
 }

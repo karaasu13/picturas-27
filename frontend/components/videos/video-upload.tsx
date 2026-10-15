@@ -41,9 +41,8 @@ export function VideoUpload({
     // Avisar já, em vez de depois de enviar até 2 GB (o servidor volta a verificar)
     if (videos.data?.some((v) => v.name === file.name)) {
       toast({
-        title: "Não foi possível carregar o vídeo",
-        description:
-          "Este projeto já tem um vídeo com esse nome. Muda o nome do ficheiro e tenta novamente.",
+        title: "The video couldn't be uploaded",
+        description: "This project already has a video with that name. Rename the file and try again.",
         variant: "destructive",
       });
       return;
@@ -58,14 +57,14 @@ export function VideoUpload({
       { file, onProgress: setProgress, signal: controller.signal },
       {
         onSuccess: (video) => {
-          toast({ title: "Vídeo carregado", description: video.name });
+          toast({ title: "Video uploaded", description: video.name });
           onUploaded?.(video);
         },
         onError: (error) => {
           if (controller.signal.aborted) return;
           toast({
-            title: "Não foi possível carregar o vídeo",
-            description: videoErrorMessage(error, "O envio falhou. Tenta novamente."),
+            title: "The video couldn't be uploaded",
+            description: videoErrorMessage(error, "The upload failed. Try again."),
             variant: "destructive",
           });
         },
@@ -80,10 +79,10 @@ export function VideoUpload({
   function onReject(rejections: FileRejection[]) {
     const tooBig = rejections.some((r) => r.errors.some((e) => e.code === "file-too-large"));
     toast({
-      title: "Ficheiro não aceite",
+      title: "File not accepted",
       description: tooBig
-        ? "O vídeo excede o tamanho máximo de 2 GB. Reduz o tamanho do ficheiro e tenta novamente."
-        : "Só são aceites vídeos MP4, MOV ou AVI (H.264 ou H.265).",
+        ? "The video is larger than the 2 GB limit. Reduce the file size and try again."
+        : "Only MP4, MOV or AVI videos (H.264 or H.265) are accepted.",
       variant: "destructive",
     });
   }
@@ -103,13 +102,14 @@ export function VideoUpload({
         <div className="flex items-center gap-2 text-sm">
           <LoaderCircle className="size-4 animate-spin shrink-0" />
           <span className="truncate flex-1">
-            {progress < 1 ? "A enviar" : "A validar"} {fileName}
+            {progress < 1 ? "Uploading" : "Checking"} {fileName}
           </span>
           <Button
             variant="ghost"
             size="icon"
             className="size-7"
-            title="Cancelar envio"
+            title="Cancel upload"
+            aria-label="Cancel upload"
             disabled={progress >= 1}
             onClick={() => abortRef.current?.abort()}
           >
@@ -133,9 +133,9 @@ export function VideoUpload({
     >
       <input {...getInputProps()} />
       <Upload className="size-5" />
-      <span className="text-sm font-medium text-foreground">Carregar vídeo</span>
+      <span className="text-sm font-medium text-foreground">Upload video</span>
       <span className="text-xs">
-        MP4, MOV ou AVI (H.264/H.265), até {formatBytes(VIDEO_RULES.maxBytes)}
+        MP4, MOV or AVI (H.264/H.265), up to {formatBytes(VIDEO_RULES.maxBytes)}
       </span>
     </div>
   );

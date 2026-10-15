@@ -3,13 +3,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Socket } from "socket.io-client";
 import {
   ACTIVE_TASK_STATES,
+  fetchTimeline,
   fetchVideos,
   fetchVideoTasks,
+  fetchWaveform,
+  ProjectVideo,
   VideoTask,
 } from "../videos";
 
 export const videosKey = (uid: string, pid: string) => ["videos", uid, pid];
 export const videoTasksKey = (uid: string, pid: string) => ["videoTasks", uid, pid];
+export const timelineKey = (uid: string, pid: string) => ["timeline", uid, pid];
 
 export const useGetVideos = (uid: string, pid: string, token: string) => {
   return useQuery({
@@ -18,6 +22,33 @@ export const useGetVideos = (uid: string, pid: string, token: string) => {
     enabled: !!uid && !!pid && !!token,
     // As URLs do storage expiram: renovar de vez em quando
     staleTime: 5 * 60 * 1000,
+    // Enquanto o worker prepara pré-visualizações, perguntar de vez em quando
+    refetchInterval: (query) => {
+      const videos = query.state.data as ProjectVideo[] | undefined;
+      return videos?.some((v) => v.preview.state === "pending") ? 3000 : false;
+    },
+  });
+};
+
+// O editor guarda as alterações localmente e só lê a timeline do servidor
+// ao abrir e depois de um erro (o rascunho local é a fonte de verdade).
+export const useGetTimeline = (uid: string, pid: string, token: string) => {
+  return useQuery({
+    queryKey: timelineKey(uid, pid),
+    queryFn: () => fetchTimeline(uid, pid, token),
+    enabled: !!uid && !!pid && !!token,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+};
+
+// Os picos não mudam: a chave é o vídeo, não a URL (que expira)
+export const useWaveform = (videoId: string, url: string | null) => {
+  return useQuery({
+    queryKey: ["waveform", videoId],
+    queryFn: () => fetchWaveform(url!),
+    enabled: !!url,
+    staleTime: Infinity,
   });
 };
 
@@ -37,8 +68,8 @@ export const useGetVideoTasks = (uid: string, pid: string, token: string) => {
 
 /**
  * Ouve os eventos "video-task" do ws_gateway e atualiza a lista de tarefas.
- * Quando um corte termina, a lista de vídeos também é atualizada (o novo
- * vídeo aparece na biblioteca). `onUpdate` permite mostrar um aviso.
+ * Quando uma exportação termina, a lista de vídeos também é atualizada (o
+ * novo vídeo aparece na biblioteca). `onUpdate` permite mostrar um aviso.
  */
 export const useVideoTaskEvents = (
   socket: Socket | undefined,
@@ -60,9 +91,7 @@ export const useVideoTaskEvents = (
       qc.setQueryData<VideoTask[]>(key, (old) => {
         if (!old) return [task];
         const exists = old.some((t) => t._id === task._id);
-        return exists
-          ? old.map((t) => (t._id === task._id ? task : t))
-          : [task, ...old];
+        return exists ? old.map((t) => (t._id === task._id ? task : t)) : [task, ...old];
       });
 
       if (task.state === "done") {

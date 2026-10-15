@@ -2,11 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   cancelVideoTask,
   deleteVideo,
-  requestVideoCut,
+  exportTimeline,
+  regeneratePreview,
   uploadVideo,
   VideoTask,
 } from "../videos";
-import { videosKey, videoTasksKey } from "../queries/videos";
+import { timelineKey, videosKey, videoTasksKey } from "../queries/videos";
 
 type Ctx = { uid: string; pid: string; token: string };
 
@@ -26,7 +27,19 @@ export const useDeleteVideo = ({ uid, pid, token }: Ctx) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (videoId: string) => deleteVideo({ uid, pid, token, videoId }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: videosKey(uid, pid) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: videosKey(uid, pid) });
+      // o servidor pode ter limpo o histórico de desfazer que usava o vídeo
+      qc.invalidateQueries({ queryKey: timelineKey(uid, pid) });
+    },
+  });
+};
+
+export const useRegeneratePreview = ({ uid, pid, token }: Ctx) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (videoId: string) => regeneratePreview({ uid, pid, token, videoId }),
+    onSettled: () => qc.invalidateQueries({ queryKey: videosKey(uid, pid) }),
   });
 };
 
@@ -37,11 +50,12 @@ const upsertTask = (old: VideoTask[] | undefined, task: VideoTask) => {
     : [task, ...old];
 };
 
-export const useRequestVideoCut = ({ uid, pid, token }: Ctx) => {
+export const useExportTimeline = ({ uid, pid, token }: Ctx) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (args: { videoId: string; start: number; end: number }) =>
-      requestVideoCut({ uid, pid, token, ...args }),
+    // a mesma fila das gravações da timeline: exporta depois de tudo gravado
+    scope: { id: `timeline-${pid}` },
+    mutationFn: (version: () => number) => exportTimeline({ uid, pid, token, version: version() }),
     onSuccess: (task) =>
       qc.setQueryData<VideoTask[]>(videoTasksKey(uid, pid), (old) => upsertTask(old, task)),
   });
