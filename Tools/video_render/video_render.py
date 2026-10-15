@@ -163,12 +163,21 @@ class VideoWorker:
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
+        lost = False
         try:
             log("start", procedure=procedure, **ids)
             handler = self._render if procedure == "video_render" else self._prepare
             result, extra = handler(req, params)
             log("success", procedure=procedure, **ids, **result)
             self._send(req, "success", **extra)
+
+        except pika.exceptions.AMQPError:
+            # Ligação ao RabbitMQ perdida a meio (o ffmpeg já foi parado): o
+            # pedido não é confirmado, volta para a fila e é repetido quando o
+            # worker voltar a ligar-se. Os ficheiros de entrada ficam onde estão.
+            lost = True
+            log("connection-lost", **ids)
+            raise
 
         except RenderCancelled:
             log("cancelled", **ids)
@@ -188,7 +197,8 @@ class VideoWorker:
         finally:
             # Só confirmamos no fim: se o worker reiniciar a meio, o pedido
             # volta para a fila e não se perde
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+            if not lost:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
         self._channel.basic_consume(queue=REQUEST_QUEUE, on_message_callback=self.on_message, auto_ack=False)
@@ -196,5 +206,21 @@ class VideoWorker:
         self._channel.start_consuming()
 
 
+def main():
+    # Se a ligação ao RabbitMQ cair (por exemplo, reiniciou), volta a ligar-se
+    # sozinho, com espera crescente: 1 s, 2 s, 4 s... até 30 s
+    attempt = 0
+    while True:
+        try:
+            worker = VideoWorker()
+            attempt = 0
+            worker.run()
+        except pika.exceptions.AMQPError as e:
+            delay = min(30, 2 ** attempt)
+            attempt += 1
+            log("reconnect", reason=repr(e), delay=delay)
+            time.sleep(delay)
+
+
 if __name__ == "__main__":
-    VideoWorker().run()
+    main()
