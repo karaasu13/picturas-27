@@ -59,7 +59,7 @@ services:
     command: >
       server -dir=/data -s3 -s3.port=9000
       -s3.encryptVolumeData
-      -master.volumeSizeLimitMB=1024
+      -master.volumeSizeLimitMB=128
     ports:
       - "9000:9000"
       - "9090:8888"
@@ -69,6 +69,9 @@ services:
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-admin123}
       # Passphrase protecting the key-encryption-key used for encryption at rest.
       WEED_S3_SSE_KEK_PASSPHRASE: ${S3_KEK_PASSPHRASE:-picturas-kek-passphrase-change-me}
+      # Cada bucket (um por utilizador) é uma collection e reservava 7 volumes ao ser criado;
+      # com 1 volume de 128 MB por collection o disco deixa de se esgotar com contas quase vazias.
+      WEED_MASTER_VOLUME_GROWTH_COPY_1: "1"
     volumes:
       - seaweedfs_data:/data
     networks:
