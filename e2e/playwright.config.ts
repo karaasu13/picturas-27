@@ -1,7 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // Testes de ponta a ponta do editor de vídeo, contra a stack a correr
-// (docker compose up). Como correr: ver e2e/REPORT.md.
+// (docker compose up -d, https://localhost:8080). Como correr, a partir de e2e/:
+//   npm ci && npx playwright install --with-deps chrome firefox
+//   npm run fixtures   # gera os vídeos de teste com ffmpeg
+//   npm test           # Chrome + Firefox; outra URL com BASE_URL=https://…
 const viewport = { width: 1440, height: 900 };
 
 export default defineConfig({
