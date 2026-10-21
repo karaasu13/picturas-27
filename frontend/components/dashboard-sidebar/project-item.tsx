@@ -27,11 +27,9 @@ import { Input } from "../ui/input";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSession } from "@/providers/session-provider";
-import { Project } from "@/lib/projects";
+import { Project, fetchProject } from "@/lib/projects";
 import { getErrorMessage } from "@/lib/error-messages";
 import { useQueryClient } from "@tanstack/react-query";
-import type { SingleProject } from "@/lib/projects";
-import { useSearchParams } from "next/navigation";
 
 
 export default function ProjectItem({ p }: { p: Project }) {
@@ -45,15 +43,8 @@ export default function ProjectItem({ p }: { p: Project }) {
 
   const session = useSession();
   const qc = useQueryClient();
-  const searchParams = useSearchParams();
-
-  const ownerId = searchParams.get("owner") ?? session.user._id;
-  const shareId = searchParams.get("share") ?? undefined;
-
-  const projectKey = ["project", session.user._id, p._id, session.token, ownerId, shareId];
-
-  const cached = qc.getQueryData<SingleProject>(projectKey);
-  const projectVersion = cached?.version; // versão REAL
+  // A barra lateral só lista projetos do próprio utilizador: mesma chave que a página do projeto
+  const projectKey = ["project", session.user._id, p._id, session.token, session.user._id, undefined];
 
   const deleteProject = useDeleteProject(
     session.user._id,
@@ -106,7 +97,7 @@ export default function ProjectItem({ p }: { p: Project }) {
         </SidebarMenuButton>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuAction className="pb-1">
+            <SidebarMenuAction className="pb-1" aria-label={`More actions for ${p.name}`}>
               <Ellipsis />
             </SidebarMenuAction>
           </DropdownMenuTrigger>
@@ -152,19 +143,29 @@ export default function ProjectItem({ p }: { p: Project }) {
           )}
           <DialogFooter>
             <Button
-              onClick={() => {
-                if (!projectVersion) {
-                  toast({
-                    title: "Não foi possível obter a versão do projeto",
-                    description: "Abre o projeto primeiro (ou aguarda carregar) e tenta novamente.",
-                    variant: "destructive",
-                  });
+              onClick={async () => {
+                // Versão atual pedida ao servidor: a da lista pode estar desatualizada
+                // e o projeto pode não estar em cache (por exemplo, no editor de vídeo)
+                let projectVersion: number;
+                try {
+                  projectVersion = (
+                    await qc.fetchQuery({
+                      queryKey: projectKey,
+                      queryFn: () => fetchProject(session.user._id, p._id, session.token, session.user._id),
+                    })
+                  ).version;
+                } catch (error) {
+                  const { title, description } = getErrorMessage(
+                    option === "rename" ? "project-update" : "project-delete",
+                    error,
+                  );
+                  toast({ title, description, variant: "destructive" });
                   return;
                 }
                 if (option === "rename")
                   updateProject.mutate({
                     name: newName,
-                    projectVersion: p.version,
+                    projectVersion,
                   });
                 else {
                   router.push("/dashboard");

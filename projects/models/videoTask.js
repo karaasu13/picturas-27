@@ -10,14 +10,14 @@ const videoTaskSchema = new mongoose.Schema(
   {
     user_id: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
     project_id: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
-    video_id: { type: mongoose.Schema.Types.ObjectId, required: true },
-    video_name: { type: String, required: true },
+    // vídeos de origem: não podem ser apagados enquanto a exportação corre
+    video_ids: { type: [mongoose.Schema.Types.ObjectId], index: true },
+    // nome do vídeo do primeiro clip (dá o nome ao resultado)
+    name: { type: String, required: true },
 
-    op: { type: String, enum: ["cut"], default: "cut" },
-    params: {
-      start: { type: Number, required: true },
-      end: { type: Number, required: true },
-    },
+    op: { type: String, enum: ["render"], default: "render" },
+    // receita da timeline no momento da exportação: { output, faixas, duration }
+    params: { type: mongoose.Schema.Types.Mixed, required: true },
 
     state: { type: String, enum: STATES, default: "queued", index: true },
     priority: { type: Number, default: 1 },

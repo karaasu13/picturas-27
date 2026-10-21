@@ -1,15 +1,15 @@
 FROM python:3.11-slim
 
-# ffmpeg/ffprobe para o corte e a validação dos vídeos
+# ffmpeg/ffprobe para o render e as pré-visualizações dos vídeos
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY ./video_cut/requirements.txt .
+COPY ./video_render/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./video_cut .
+COPY ./video_render .
 
-CMD ["python", "-u", "video_cut.py"]
+CMD ["python", "-u", "video_render.py"]

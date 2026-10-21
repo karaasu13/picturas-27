@@ -1,10 +1,11 @@
 "use client";
 
-import { Ban, CircleCheck, CircleX, Clock, LoaderCircle, X } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Clock, Download, LoaderCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ACTIVE_TASK_STATES,
   formatTimecode,
+  ProjectVideo,
   TASK_STATE_LABELS,
   VideoTask,
   VideoTaskState,
@@ -25,19 +26,25 @@ const STATE_STYLE: Record<VideoTaskState, { icon: React.ReactNode; className: st
   cancelled: { icon: <Ban className="size-3.5" />, className: "text-muted-foreground" },
 };
 
+function summary(task: VideoTask) {
+  const { output, duration } = task.params;
+  if (!output || duration === null) return null;
+  return `${output.formato.toUpperCase()} · ${output.largura}×${output.altura} · ${formatTimecode(duration)}`;
+}
+
 export function VideoTaskList({
   tasks,
+  videos,
   cancellingId,
   onCancel,
-  onOpenResult,
 }: {
   tasks: VideoTask[];
+  videos: Map<string, ProjectVideo>;
   cancellingId: string | null;
   onCancel: (task: VideoTask) => void;
-  onOpenResult: (task: VideoTask) => void;
 }) {
   if (tasks.length === 0) {
-    return <p className="text-sm text-muted-foreground px-1">Ainda não há tarefas.</p>;
+    return <p className="text-sm text-muted-foreground px-1">No exports yet.</p>;
   }
 
   return (
@@ -45,17 +52,17 @@ export function VideoTaskList({
       {tasks.map((task) => {
         const style = STATE_STYLE[task.state];
         const active = ACTIVE_TASK_STATES.includes(task.state);
+        const result = task.outputVideoId ? videos.get(task.outputVideoId) : undefined;
+        const info = summary(task);
         return (
-          <li key={task._id} className="rounded-lg border px-3 py-2 flex flex-col gap-1">
+          <li key={task._id} data-testid="export-task" className="rounded-lg border px-3 py-2 flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <span
-                className={cn("inline-flex items-center gap-1 text-xs font-medium shrink-0", style.className)}
-              >
+              <span className={cn("inline-flex items-center gap-1 text-xs font-medium shrink-0", style.className)}>
                 {style.icon}
                 {TASK_STATE_LABELS[task.state]}
               </span>
-              <span className="truncate text-sm flex-1" title={task.videoName}>
-                {task.videoName}
+              <span className="truncate text-sm flex-1" title={result?.name ?? task.name}>
+                {result?.name ?? task.name}
               </span>
               {active && (
                 <Button
@@ -66,18 +73,18 @@ export function VideoTaskList({
                   onClick={() => onCancel(task)}
                 >
                   {cancellingId === task._id ? <LoaderCircle className="animate-spin" /> : <X />}
-                  Cancelar
+                  Cancel
                 </Button>
               )}
-              {task.state === "done" && task.outputVideoId && (
-                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => onOpenResult(task)}>
-                  Ver resultado
+              {task.state === "done" && result?.url && (
+                <Button asChild variant="ghost" size="sm" className="h-7 px-2">
+                  <a href={result.url} download={result.name}>
+                    <Download /> Download
+                  </a>
                 </Button>
               )}
             </div>
-            <span className="text-xs text-muted-foreground font-mono">
-              Eliminar {formatTimecode(task.params.start)} → {formatTimecode(task.params.end)}
-            </span>
+            {info && <span className="text-xs text-muted-foreground font-mono">{info}</span>}
             {task.state === "failed" && task.error && (
               <p className="text-xs text-destructive">{task.error.message}</p>
             )}

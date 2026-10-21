@@ -1,15 +1,18 @@
 "use client";
 
 import { useToast } from "@/hooks/use-toast";
+import { VIDEO_RULES } from "@/lib/videos";
 import React, { useState } from "react";
 import Dropzone from "react-dropzone";
 
 interface CustomDropzoneProps {
   onDrop: (acceptedFiles: File[]) => void;
   children?: React.ReactNode;
+  // Aceita também vídeos (só ao criar um projeto)
+  videos?: boolean;
 }
 
-export default function AppDropzone({ onDrop, children }: CustomDropzoneProps) {
+export default function AppDropzone({ onDrop, children, videos = false }: CustomDropzoneProps) {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const { toast } = useToast();
 
@@ -24,7 +27,9 @@ export default function AppDropzone({ onDrop, children }: CustomDropzoneProps) {
           setIsDragging(false);
           toast({
             title: "Invalid file type!",
-            description: "Please upload a .png, .jpeg, .jpg, or .zip file",
+            description: videos
+              ? "Please upload a .png, .jpeg, .jpg or .zip file, or an MP4, MOV or AVI video"
+              : "Please upload a .png, .jpeg, .jpg, or .zip file",
             variant: "destructive",
           });
         }}
@@ -33,6 +38,7 @@ export default function AppDropzone({ onDrop, children }: CustomDropzoneProps) {
           "image/jpeg": [".jpeg"],
           "image/jpg": [".jpg"],
           "application/zip": [".zip"],
+          ...(videos ? VIDEO_RULES.accept : {}),
         }}
       >
         {({ getRootProps, getInputProps }) => (

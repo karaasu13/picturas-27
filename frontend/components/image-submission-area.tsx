@@ -1,19 +1,23 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import AppDropzone from "./app-dropzone";
-import { FileImage, ImagePlus, Plus, X } from "lucide-react";
+import { FileImage, FileVideo, ImagePlus, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { HoverCard, HoverCardTrigger } from "./ui/hover-card";
 import { HoverCardContent } from "@radix-ui/react-hover-card";
 import ImagePreview from "./image-preview";
 import { extractZipImages } from "@/lib/utils";
+import { isVideoFile } from "@/lib/videos";
 
 export default function ImageSubmissionArea({
   receivedFiles = [],
   onDrop,
+  videos = false,
 }: {
   receivedFiles?: File[];
   onDrop: (files: File[]) => void;
+  // Aceita também vídeos (só ao criar um projeto)
+  videos?: boolean;
 }) {
   const [files, setFiles] = useState<File[]>([]);
 
@@ -31,7 +35,7 @@ export default function ImageSubmissionArea({
       if (file.type === "application/zip") {
         const extractedFiles = await extractZipImages(file);
         compatibleFiles.push(...extractedFiles);
-      } else if (compatibleFileTypes.includes(file.type)) {
+      } else if (compatibleFileTypes.includes(file.type) || (videos && isVideoFile(file))) {
         compatibleFiles.push(file);
       }
     }
@@ -44,6 +48,7 @@ export default function ImageSubmissionArea({
         const newFile = new File(
           [file],
           `${file.name.split(".")[0]} (${duplicateNames.size}).${file.name.split(".")[1]}`,
+          { type: file.type },
         );
         duplicateNames.add(newFile.name);
         return newFile;
@@ -68,11 +73,11 @@ export default function ImageSubmissionArea({
     <div>
       {files.length <= 0 ? (
         <div className="h-64">
-          <AppDropzone onDrop={handleDrop}>
+          <AppDropzone onDrop={handleDrop} videos={videos}>
             <div className="flex flex-col gap-4 items-center justify-center max-w-[20rem]">
               <ImagePlus size={64} />
               <p className="font-medium text-lg">
-                Drag and drop images or a .zip
+                {videos ? "Drag and drop images, a .zip or videos" : "Drag and drop images or a .zip"}
               </p>
             </div>
           </AppDropzone>
@@ -89,7 +94,11 @@ export default function ImageSubmissionArea({
                   >
                     <CardContent className="py-2 px-3 relative">
                       <div className="flex flex-col items-center justify-center pointer-events-none">
-                        <FileImage className="w-10 h-7 text-primary mb-1" />
+                        {isVideoFile(file) ? (
+                          <FileVideo className="w-10 h-7 text-primary mb-1" />
+                        ) : (
+                          <FileImage className="w-10 h-7 text-primary mb-1" />
+                        )}
                         <p className="text-xs text-center truncate w-full">
                           {file.name}
                         </p>
@@ -108,13 +117,16 @@ export default function ImageSubmissionArea({
                     </CardContent>
                   </Card>
                 </HoverCardTrigger>
-                <HoverCardContent className="h-48 w-64 z-50">
-                  <ImagePreview file={file} />
-                </HoverCardContent>
+                {/* A pré-visualização só sabe mostrar imagens */}
+                {!isVideoFile(file) && (
+                  <HoverCardContent className="h-48 w-64 z-50">
+                    <ImagePreview file={file} />
+                  </HoverCardContent>
+                )}
               </HoverCard>
             ))}
             <div>
-              <AppDropzone onDrop={handleDrop}>
+              <AppDropzone onDrop={handleDrop} videos={videos}>
                 <Plus />
               </AppDropzone>
             </div>

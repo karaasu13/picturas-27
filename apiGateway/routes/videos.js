@@ -1,4 +1,4 @@
-// Rotas de vídeo (UC-VID-001): reencaminha para o Projects-MS.
+// Rotas de vídeo (editor com timeline): reencaminha para o Projects-MS.
 //
 // Só o dono do projeto usa os vídeos (o Projects-MS volta a verificar).
 // O upload é passado em streaming: um vídeo pode ter até 2 GB e não pode
@@ -54,7 +54,7 @@ function proxy(method, suffix) {
     axios({
       method,
       url: projectsURL + upstreamPath(req, suffix(req)),
-      data: method === "post" ? req.body : undefined,
+      data: method === "post" || method === "put" ? req.body : undefined,
       httpsAgent,
       headers: upstreamHeaders(req),
     })
@@ -81,10 +81,11 @@ router.delete(
   proxy("delete", (req) => `/videos/${id("video")(req)}`),
 );
 
+// Gerar de novo a pré-visualização (proxy, miniaturas, forma de onda)
 router.post(
-  "/:user/:project/videos/:video/cut",
+  "/:user/:project/videos/:video/preview",
   auth.checkToken,
-  proxy("post", (req) => `/videos/${id("video")(req)}/cut`),
+  proxy("post", (req) => `/videos/${id("video")(req)}/preview`),
 );
 
 // Upload em streaming: o corpo multipart segue tal como chegou
@@ -122,6 +123,14 @@ router.post("/:user/:project/videos", auth.checkToken, (req, res) => {
 
   req.pipe(upstream);
 });
+
+// ---------------------------------------------------------------- timeline
+
+router.get("/:user/:project/timeline", auth.checkToken, proxy("get", () => "/timeline"));
+router.put("/:user/:project/timeline", auth.checkToken, proxy("put", () => "/timeline"));
+router.post("/:user/:project/timeline/undo", auth.checkToken, proxy("post", () => "/timeline/undo"));
+router.post("/:user/:project/timeline/redo", auth.checkToken, proxy("post", () => "/timeline/redo"));
+router.post("/:user/:project/timeline/export", auth.checkToken, proxy("post", () => "/timeline/export"));
 
 // ----------------------------------------------------------------- tarefas
 

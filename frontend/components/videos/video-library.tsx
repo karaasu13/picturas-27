@@ -1,6 +1,6 @@
 "use client";
 
-import { Film, Scissors, Trash2 } from "lucide-react";
+import { AlertTriangle, Clapperboard, Film, LoaderCircle, Plus, RotateCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,75 +15,97 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatBytes, formatDuration, ProjectVideo } from "@/lib/videos";
-import { cn } from "@/lib/utils";
+
+// Tipo usado no drag & drop da biblioteca para a timeline
+export const VIDEO_DRAG_TYPE = "application/x-picturas-video";
 
 export function VideoLibrary({
   videos,
-  selectedId,
   busyIds,
-  onSelect,
+  onAdd,
   onDelete,
+  onRetryPreview,
 }: {
   videos: ProjectVideo[];
-  selectedId: string | null;
   busyIds: Set<string>;
-  onSelect: (video: ProjectVideo) => void;
+  onAdd: (video: ProjectVideo) => void;
   onDelete: (video: ProjectVideo) => void;
+  onRetryPreview: (video: ProjectVideo) => void;
 }) {
   if (videos.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground px-1">
-        Ainda não há vídeos neste projeto.
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground px-1">No videos yet. Drop files here or use Upload.</p>;
   }
 
   return (
     <ul className="flex flex-col gap-1">
       {videos.map((video) => {
-        const selected = video._id === selectedId;
         const busy = busyIds.has(video._id);
+        const state = video.preview.state;
         return (
           <li key={video._id}>
             <div
-              className={cn(
-                "group flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
-                selected ? "border-primary bg-primary/5" : "hover:bg-sidebar",
-              )}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(VIDEO_DRAG_TYPE, video._id);
+                e.dataTransfer.effectAllowed = "copy";
+              }}
+              className="group flex items-center gap-2 rounded-md border px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-sidebar"
+              title="Drag to the timeline"
             >
-              <button
-                type="button"
-                className="flex flex-1 min-w-0 items-center gap-3 text-left"
-                onClick={() => onSelect(video)}
-              >
-                {video.source === "cut" ? (
-                  <Scissors className="size-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <Film className="size-4 shrink-0 text-muted-foreground" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium">{video.name}</span>
-                    {video.source === "cut" && (
-                      <Badge variant="secondary" className="shrink-0">
-                        Corte
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDuration(video.duration)} · {video.width}×{video.height} ·{" "}
-                    {formatBytes(video.size)}
-                  </span>
+              {video.source === "render" ? (
+                <Clapperboard className="size-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <Film className="size-4 shrink-0 text-muted-foreground" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium">{video.name}</span>
+                  {video.source === "render" && (
+                    <Badge variant="secondary" className="shrink-0">
+                      Export
+                    </Badge>
+                  )}
                 </div>
-              </button>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {formatDuration(video.duration)} · {video.width}×{video.height} · {formatBytes(video.size)}
+                </span>
+                {state === "pending" && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <LoaderCircle className="size-3 animate-spin" /> Preparing preview…
+                  </span>
+                )}
+                {(state === "failed" || state === "missing") && (
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs text-destructive hover:underline"
+                    onClick={() => onRetryPreview(video)}
+                  >
+                    <AlertTriangle className="size-3" />
+                    {state === "failed" ? "Preview failed" : "No preview"} · Retry
+                    <RotateCw className="size-3" />
+                  </button>
+                )}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0"
+                title="Add to timeline"
+                aria-label={`Add ${video.name} to the timeline`}
+                onClick={() => onAdd(video)}
+              >
+                <Plus />
+              </Button>
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-8 shrink-0 text-muted-foreground"
-                    title={busy ? "Tem uma tarefa em curso" : "Remover vídeo"}
+                    className="size-7 shrink-0 text-muted-foreground"
+                    title={busy ? "Used by an export in progress" : "Delete video"}
+                    aria-label={`Delete ${video.name}`}
                     disabled={busy}
                   >
                     <Trash2 />
@@ -91,15 +113,14 @@ export function VideoLibrary({
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Remover vídeo?</AlertDialogTitle>
+                    <AlertDialogTitle>Delete video?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      O vídeo &quot;{video.name}&quot; é apagado do projeto. Esta ação não pode ser
-                      desfeita.
+                      &quot;{video.name}&quot; will be removed from the project. This can&apos;t be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onDelete(video)}>Remover</AlertDialogAction>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(video)}>Delete</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>

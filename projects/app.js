@@ -39,7 +39,7 @@ app.use("/", projectsRouter);
 // Start the message processing
 process_msg();
 
-// Estados das tarefas de vídeo enviados pelo worker video_cut
+// Estados das tarefas de vídeo enviados pelo worker video_render
 start_video_consumer();
 
 // catch 404 and forward to error handler

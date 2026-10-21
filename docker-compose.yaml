@@ -59,7 +59,7 @@ services:
     command: >
       server -dir=/data -s3 -s3.port=9000
       -s3.encryptVolumeData
-      -master.volumeSizeLimitMB=1024
+      -master.volumeSizeLimitMB=128
     ports:
       - "9000:9000"
       - "9090:8888"
@@ -69,6 +69,9 @@ services:
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-admin123}
       # Passphrase protecting the key-encryption-key used for encryption at rest.
       WEED_S3_SSE_KEK_PASSPHRASE: ${S3_KEK_PASSPHRASE:-picturas-kek-passphrase-change-me}
+      # Cada bucket (um por utilizador) é uma collection e reservava 7 volumes ao ser criado;
+      # com 1 volume de 128 MB por collection o disco deixa de se esgotar com contas quase vazias.
+      WEED_MASTER_VOLUME_GROWTH_COPY_1: "1"
     volumes:
       - seaweedfs_data:/data
     networks:
@@ -440,10 +443,12 @@ services:
       - RABBITMQ_PASS=password
       - GEN_EXPAND_URL=http://generative-mock:7860
       
-  video_cut_tool:
+  # Editor de vídeo: o mesmo worker em duas filas, para as pré-visualizações
+  # (proxy, sprite, forma de onda) nunca ficarem à espera de um render longo
+  video_render_tool:
     build:
       context: ./Tools
-      dockerfile: video_cut/Dockerfile
+      dockerfile: video_render/Dockerfile
     restart: on-failure
     networks:
       - elk
@@ -457,10 +462,33 @@ services:
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=user
       - RABBITMQ_PASS=password
+      - VIDEO_QUEUE=video_render_queue
+      # mínimo; vídeos longos têm 2x a duração final
       - VIDEO_TASK_TIMEOUT=900
-    # Limites por worker de vídeo (REQ-VID-CUT-024)
     cpus: 2.0
     mem_limit: 4g
+
+  video_prepare_tool:
+    build:
+      context: ./Tools
+      dockerfile: video_render/Dockerfile
+    restart: on-failure
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - image_data:/app/images
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=user
+      - RABBITMQ_PASS=password
+      - VIDEO_QUEUE=video_prepare_queue
+      - VIDEO_TASK_TIMEOUT=900
+    cpus: 1.0
+    mem_limit: 2g
 
   watermark_tool_ms:
     image: prcsousa/picturas-watermark-tool-ms:latest

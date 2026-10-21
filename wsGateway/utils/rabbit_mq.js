@@ -29,19 +29,38 @@ function send_rabbit_msg(msg, queue) {
     
 }
 
-function read_rabbit_msg(queue, callback) {
+// Consome a fila. Se a ligação cair (por exemplo, o RabbitMQ reiniciou),
+// volta a ligar-se sozinho, com espera crescente: 1 s, 2 s, 4 s... até 30 s.
+function read_rabbit_msg(queue, callback, attempt = 0) {
+    const again = (n, reason) => {
+        const delay = Math.min(30000, 1000 * 2 ** n);
+        console.error(`[RabbitMQ] ${reason}: nova tentativa em ${delay / 1000} s`);
+        setTimeout(() => read_rabbit_msg(queue, callback, n + 1), delay);
+    };
+
     amqp.connect(rabbit_mq_sv, (err_sv, connection) => {
-        if (err_sv) throw err_sv;
+        if (err_sv) return again(attempt, `sem ligação (${err_sv.message})`);
+
+        // A ligação chegou a funcionar: se cair, a espera recomeça do início
+        connection.on("error", (err) => console.error("[RabbitMQ] erro na ligação:", err.message));
+        connection.once("close", () => again(0, "ligação perdida"));
+        const drop = () => {
+            try { connection.close(); } catch (_) { /* já estava fechada */ }
+        };
 
         connection.createChannel((err_conn, channel) => {
-            if (err_conn) throw err_conn;
+            if (err_conn) return drop();
+
+            // Sem canal não há consumo: fecha a ligação para ligar tudo de novo
+            channel.on("error", (err) => console.error("[RabbitMQ] erro no canal:", err.message));
+            channel.on("close", drop);
 
             channel.assertExchange(exchange, 'direct', {
                 durable: true
               });
 
             channel.assertQueue(queue, { durable: true }, (err_queue, q) => {
-                if(err_queue) throw err_queue;
+                if (err_queue) return drop();
 
                 channel.consume(q.queue, (msg) => {
                     if(msg != null){
@@ -52,6 +71,7 @@ function read_rabbit_msg(queue, callback) {
                 }, {
                     noAck: false
                 });
+                console.log(`[RabbitMQ] a consumir ${queue}`);
             });
         });
     });

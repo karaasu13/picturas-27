@@ -727,11 +727,11 @@ const handleCancel = () => {
                 </>
               )}
 
-              {/* Vídeos do projeto (UC-VID-001): só o dono */}
+              {/* Editor de vídeo do projeto: só o dono */}
               {session.user._id === ownerId && !shareId && (
                 <Button asChild variant="outline">
                   <Link href={`/dashboard/${pid}/videos`}>
-                    <Film /> Vídeos
+                    <Film /> Video editor
                   </Link>
                 </Button>
               )}

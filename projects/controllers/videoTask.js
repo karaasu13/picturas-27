@@ -39,7 +39,7 @@ module.exports.transition = async (task_id, from, update, extraFilter = {}) => {
 };
 
 module.exports.countActiveForVideo = async (video_id) => {
-  return await VideoTask.countDocuments({ video_id, state: { $in: ACTIVE_STATES } }).exec();
+  return await VideoTask.countDocuments({ video_ids: video_id, state: { $in: ACTIVE_STATES } }).exec();
 };
 
 // "Em Fila" mas nunca enviadas ao worker, criadas antes de `before`

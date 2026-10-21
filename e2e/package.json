@@ -1,0 +1,11 @@
+{
+  "name": "picturas-e2e",
+  "private": true,
+  "scripts": {
+    "fixtures": "sh fixtures/gen.sh",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.48.0"
+  }
+}
