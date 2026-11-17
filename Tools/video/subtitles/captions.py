@@ -11,6 +11,8 @@ import subprocess
 import tempfile
 from functools import lru_cache
 
+from common.media import probe
+
 
 @lru_cache(maxsize=1)
 def speech_model():
@@ -80,3 +82,11 @@ def caption_video(input_path, output_path, info, progress):
         if result.returncode:
             raise RuntimeError(f"Could not render subtitles: {result.stderr[-500:]}")
         progress(100)
+
+
+def subtitles_stage(context) -> dict:
+    """Stage handler of the subtitles service: captions burned into the stage's input."""
+    caption_video(context.input_path, context.stage_output, probe(context.input_path), context.progress)
+    result = probe(context.stage_output)
+    result["frames"] = round(result["duration"] * result["fps"])
+    return result

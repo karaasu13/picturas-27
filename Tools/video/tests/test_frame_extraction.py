@@ -5,9 +5,9 @@ import hashlib
 import pytest
 from PIL import Image
 
-import frame_extraction
-from frame_extraction import InvalidExtraction, sampling_times, validate_params
-from video_processor import process_video
+from extract_frames import extraction as frame_extraction
+from extract_frames.extraction import InvalidExtraction, sampling_times, validate_params
+from local_pipeline import process_video
 
 
 def tool(**params):
@@ -33,7 +33,7 @@ def test_count_images_and_original_preserved(sample_video, tmp_path, fmt, extens
     assert hashlib.sha256(Path(sample_video).read_bytes()).hexdigest() == source_hash
     assert progress[-1] == 100 and progress == sorted(progress)
     assert not list(tmp_path.glob("extract-*"))
-    assert not list(tmp_path.glob("frame-source-*"))
+    assert not list(tmp_path.glob(".video-work-*"))
 
 
 def test_interval_sampling(sample_video, tmp_path):
@@ -120,12 +120,12 @@ def test_extractor_failure_leaves_previous_output(sample_video, tmp_path, monkey
         process_video(sample_video, str(target), [tool()])
     assert target.read_bytes() == b"previous output"
     assert not list(tmp_path.glob("extract-*"))
-    assert not list(tmp_path.glob("frame-source-*"))
+    assert not list(tmp_path.glob(".video-work-*"))
     assert not list(tmp_path.glob("result-frames-*"))
 
 
 def test_extraction_does_not_load_speech_model(silent_video, tmp_path, monkeypatch):
-    import subtitles
+    from subtitles import captions as subtitles
     monkeypatch.setattr(subtitles, "speech_model", lambda: pytest.fail("no captions requested"))
     result = process_video(silent_video, str(tmp_path / "result.mp4"), [tool(count=1)])
     assert len(result["frames"]) == 1
@@ -133,7 +133,7 @@ def test_extraction_does_not_load_speech_model(silent_video, tmp_path, monkeypat
 
 def test_captions_run_before_extraction(sample_video, tmp_path, monkeypatch):
     from types import SimpleNamespace
-    import subtitles
+    from subtitles import captions as subtitles
     seen = []
 
     def transcribe(path, **kwargs):
@@ -155,7 +155,7 @@ def test_invalid_parameter_container(params):
 
 @pytest.mark.parametrize("fmt", ["png", "jpeg"])
 def test_extraction_only_seeks_original_without_transcoding(silent_video, tmp_path, monkeypatch, fmt):
-    import video_processor
+    from edit import processor as video_processor
     monkeypatch.setattr(video_processor, "_process_video",
                         lambda *a, **k: pytest.fail("extraction-only must not transcode"))
     result = process_video(silent_video, str(tmp_path / "result.mp4"),
@@ -166,7 +166,7 @@ def test_extraction_only_seeks_original_without_transcoding(silent_video, tmp_pa
     for frame in result["frames"]:
         with Image.open(frame["file"]) as image:
             assert image.format == ("PNG" if fmt == "png" else "JPEG")
-    assert not list(tmp_path.glob("frame-source-*"))
+    assert not list(tmp_path.glob(".video-work-*"))
 
 
 def test_extraction_uses_video_duration_when_audio_is_longer(sample_video, tmp_path):

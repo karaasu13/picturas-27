@@ -9,9 +9,10 @@ import subprocess
 import pytest
 from PIL import Image, ImageStat
 
-from effects import UnsupportedEffect
-from video_processor import (InvalidSpeed, InvalidTrim, InvalidVideo, PREVIEW_SECONDS,
-                             atempo_chain, probe, process_video, resolve_trim)
+from common.errors import InvalidSpeed, InvalidTrim, InvalidVideo, UnsupportedEffect
+from common.media import probe
+from edit.processor import PREVIEW_SECONDS, atempo_chain, resolve_trim
+from local_pipeline import process_video
 
 
 def sha(path):

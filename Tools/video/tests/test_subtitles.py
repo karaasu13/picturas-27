@@ -7,8 +7,9 @@ import subprocess
 import pytest
 from PIL import Image, ImageChops
 
-import subtitles
-from video_processor import process_video, probe
+from common.media import probe
+from local_pipeline import process_video
+from subtitles import captions as subtitles
 
 CAPTIONS = [{"procedure": "subtitles", "params": {}}]
 
@@ -47,7 +48,7 @@ def test_caption_rendering_preserves_audio_and_original(sample_video, tmp_path, 
     a = Image.open(tmp_path / "before.png").convert("RGB").crop((20, 190, 300, 230))
     b = Image.open(tmp_path / "after.png").convert("RGB").crop((20, 190, 300, 230))
     assert sum(ImageChops.difference(a, b).convert("L").getdata()) / (280 * 40) > 3
-    assert not list(tmp_path.glob("captions-*"))
+    assert not list(tmp_path.glob(".video-work-*"))
 
 
 def test_order_and_preview(sample_video, tmp_path, monkeypatch):
@@ -83,7 +84,7 @@ def test_model_failure_does_not_publish_partial_output(sample_video, tmp_path, m
     with pytest.raises(RuntimeError, match="model unavailable"):
         process_video(sample_video, str(out), CAPTIONS)
     assert not out.exists()
-    assert not list(tmp_path.glob("captions-*"))
+    assert not list(tmp_path.glob(".video-work-*"))
 
 
 def test_captions_clamp_times_and_remove_markup(tmp_path):
@@ -136,7 +137,7 @@ def test_encoder_failure_preserves_previous_output(sample_video, tmp_path, monke
     with pytest.raises(RuntimeError, match="encoder failed"):
         process_video(sample_video, str(out), CAPTIONS)
     assert out.read_bytes() == b"previous successful output"
-    assert not list(tmp_path.glob("captions-*"))
+    assert not list(tmp_path.glob(".video-work-*"))
 
 
 @pytest.mark.parametrize("start,end", [(float("nan"), 1), (0, float("inf"))])
