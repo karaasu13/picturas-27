@@ -252,17 +252,54 @@ services:
     volumes:
       - image_data:/app/images
 
-  # Video worker (ffmpeg isolated in the container)
-  video_tool:
+  # Video services: one container per kind of work, each with its own queue.
+  # Replicas of a service share its queue, so each kind of work scales on its own
+  # (VIDEO_*_REPLICAS in .env). See Tools/video.
+
+  # Entry point: splits each video pipeline into stages and hands it to the first one
+  video_router:
     build:
       context: ./Tools
-      dockerfile: video/Dockerfile
+      dockerfile: video/router/Dockerfile
+    restart: on-failure
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # Trim, speed and frame effects (ffmpeg isolated in the container)
+  video_edit_tool:
+    build:
+      context: ./Tools
+      dockerfile: video/edit/Dockerfile
     restart: on-failure
     environment:
       VIDEO_PREVIEW_SECONDS: 3
+    deploy:
+      replicas: ${VIDEO_EDIT_REPLICAS:-4}
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - image_data:/app/images
+
+  # Automatic subtitles (speech recognition on CPU). A lower CPU weight keeps a
+  # long recognition from starving the other video services when CPUs are contended.
+  video_subtitles_tool:
+    build:
+      context: ./Tools
+      dockerfile: video/subtitles/Dockerfile
+    restart: on-failure
+    environment:
       WHISPER_MODEL: small
       WHISPER_CACHE_DIR: /models/whisper
       WHISPER_CPU_THREADS: 2
+    deploy:
+      replicas: ${VIDEO_SUBTITLES_REPLICAS:-1}
+    cpu_shares: ${VIDEO_SUBTITLES_CPU_SHARES:-512}
     networks:
       - elk
     depends_on:
@@ -271,6 +308,22 @@ services:
     volumes:
       - image_data:/app/images
       - whisper_models:/models/whisper
+
+  # Frame extraction (ffmpeg isolated in the container)
+  video_extract_tool:
+    build:
+      context: ./Tools
+      dockerfile: video/extract_frames/Dockerfile
+    restart: on-failure
+    deploy:
+      replicas: ${VIDEO_EXTRACT_REPLICAS:-1}
+    networks:
+      - elk
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - image_data:/app/images
 
   border_tool:
     build:
