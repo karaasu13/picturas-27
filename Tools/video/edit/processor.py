@@ -20,6 +20,7 @@ from PIL import Image
 
 from common.errors import InvalidSpeed, InvalidTrim, InvalidVideo, ProcessingError
 from common.media import probe
+from common.plan import EDIT_QUEUE
 from edit.effects import apply_frame_effects, frame_effect
 
 # Preview: only the first seconds
@@ -253,7 +254,22 @@ def _read(f) -> str:
     return f.read().decode(errors="replace").strip()[-500:]
 
 
+def check_plan_effects(stages: list) -> None:
+    """Every frame effect of the pipeline exists, checked before any stage does work.
+
+    Every pipeline with frame effects starts with an edit stage (captions are
+    always preceded by a normalising edit stage), so the first edit stage
+    rejects an unknown effect before speech recognition or extraction run.
+    The list of effects is the edit/effects package itself: the router does not
+    need to know it.
+    """
+    for stage in stages:
+        if stage.get("queue") == EDIT_QUEUE:
+            frame_tools(stage.get("tools") or [])
+
+
 def edit_stage(context) -> dict:
     """Stage handler of the edit service: one decode/encode pass over the stage's tools."""
+    check_plan_effects(context.stages)
     return _process_video(context.input_path, context.stage_output, context.tools,
                           context.progress, context.preview)

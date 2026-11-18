@@ -12,6 +12,7 @@ and hands the message to the queue of the next one. Every stage also carries
 the slice of the overall progress it accounts for.
 """
 from common.errors import InvalidExtraction
+from common.extraction_params import validate_params
 
 EDIT_QUEUE = "video_edit_queue"
 SUBTITLES_QUEUE = "video_subtitles_queue"
@@ -81,20 +82,25 @@ def _spread_progress(stages: list, start: float, end: float) -> None:
         stage["progress"] = [start + index * step, start + (index + 1) * step]
 
 
-def check_extraction_position(tools: list) -> bool:
-    """True when the pipeline ends with a frame extraction; it must be unique and last."""
+def check_extraction(tools: list) -> bool:
+    """True when the pipeline ends with a frame extraction.
+
+    The extraction must be unique, last and have valid parameters; otherwise the
+    whole pipeline is rejected before any stage runs.
+    """
     extractors = [i for i, tool in enumerate(tools) if _is(tool, EXTRACT_FRAMES)]
     if not extractors:
         return False
     if extractors != [len(tools) - 1]:
         raise InvalidExtraction("Frame extraction must appear once, at the end of the pipeline")
+    validate_params(tools[-1].get("params", {}))
     return True
 
 
 def plan_stages(tools: list, preview: bool = False) -> list:
     """Ordered stages for `tools`: [{"queue", "tools", "preview", "progress": [from, to]}]."""
     tools = list(tools or [])
-    if not check_extraction_position(tools):
+    if not check_extraction(tools):
         stages = _video_stages(tools, preview)
         _spread_progress(stages, 0, 100)
         return stages

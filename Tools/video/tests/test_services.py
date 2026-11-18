@@ -78,6 +78,7 @@ def services(monkeypatch):
             body = json.dumps(broker.queues[pending].pop(0)).encode()
             consumers[pending].callback(consumers[pending]._channel, SimpleNamespace(delivery_tag=1), None, body)
 
+    deliver.consumers = consumers
     return broker, deliver
 
 
@@ -194,3 +195,170 @@ def test_preview_job(services, sample_video, tmp_path):
     reply = broker.queues["project_queue"][0]
     assert reply["metadata"]["video"]["duration"] == pytest.approx(3, abs=0.15)
     assert all(e["preview"] is True for e in broker.queues["ws_queue"])
+
+
+# ---------------------------------------------------------------------------
+# An invalid pipeline is rejected before any expensive stage runs
+# ---------------------------------------------------------------------------
+
+STAGE_QUEUES = ("video_edit_queue", "video_subtitles_queue", "video_extract_queue")
+
+
+class CountingRecognizer:
+    """Speech model stub that counts how many recognitions ran."""
+
+    def __init__(self):
+        self.runs = 0
+
+    def __call__(self):
+        return self
+
+    def transcribe(self, *_args, **_kwargs):
+        self.runs += 1
+        return iter([SimpleNamespace(start=0, end=2, text="Hello")]), None
+
+
+# An unknown effect after the captions fails in the first edit stage, before speech recognition
+def test_unknown_effect_is_rejected_before_captions(services, sample_video, tmp_path, monkeypatch):
+    from subtitles import captions
+    speech = CountingRecognizer()
+    monkeypatch.setattr(captions, "speech_model", speech)
+    broker, deliver = services
+    visited = deliver(job(sample_video, str(tmp_path / "r.mp4"),
+                          [{"procedure": "subtitles", "params": {}}, {"procedure": "obj_ai", "params": {}}]))
+    assert visited == ["video_queue", "video_edit_queue"]
+    (reply,) = broker.queues["project_queue"]
+    assert reply["status"] == "error" and reply["error"]["code"] == 2002
+    assert reply["error"]["msg"] == "Effect 'obj_ai' is not available for video"
+    assert speech.runs == 0
+    assert not broker.queues.get("video_subtitles_queue") and not broker.queues.get("video_extract_queue")
+    assert not list(tmp_path.glob(".video-work-*"))
+
+
+# Invalid extraction parameters are rejected by the router: no service receives the job
+def test_invalid_extraction_is_rejected_by_the_router(services, sample_video, tmp_path):
+    broker, deliver = services
+    visited = deliver(job(sample_video, str(tmp_path / "r.mp4"),
+                          [{"procedure": "trim", "params": {"start": 0, "end": 3}},
+                           {"procedure": "extract_frames", "params": {"mode": "bogus", "format": "png"}}]))
+    assert visited == ["video_queue"]
+    (reply,) = broker.queues["project_queue"]
+    assert reply["status"] == "error" and reply["error"]["code"] == 2001
+    assert reply["error"]["msg"] == "Choose count/interval and PNG/JPEG"
+    assert not any(broker.queues.get(q) for q in STAGE_QUEUES)
+    assert not list(tmp_path.glob(".video-work-*"))
+
+
+# ---------------------------------------------------------------------------
+# A stage runs once per job, even when RabbitMQ delivers it again
+# ---------------------------------------------------------------------------
+
+def plan_for(deliver, broker, message):
+    """Runs only the router and returns the message it handed to the first stage."""
+    consumer = deliver.consumers["video_queue"]
+    consumer.callback(consumer._channel, SimpleNamespace(delivery_tag=1), None, json.dumps(message).encode())
+    queue = next(q for q in STAGE_QUEUES if broker.queues.get(q))
+    return queue, broker.queues[queue].pop(0)
+
+
+def deliver_once(deliver, queue, message, redelivered=False):
+    consumer = deliver.consumers[queue]
+    consumer.callback(consumer._channel, SimpleNamespace(delivery_tag=1, redelivered=redelivered),
+                      None, json.dumps(message).encode())
+
+
+# The reported scenario: the edit service publishes the next stage and dies before acknowledging.
+# RabbitMQ redelivers; the pipeline still replies once, with success, and captions run once.
+def test_crash_between_publish_and_ack(services, sample_video, tmp_path, monkeypatch):
+    from common.messaging import now
+    from subtitles import captions
+    speech = CountingRecognizer()
+    monkeypatch.setattr(captions, "speech_model", speech)
+    broker, deliver = services
+    queue, first = plan_for(deliver, broker, job(sample_video, str(tmp_path / "r.mp4"),
+                            [{"procedure": "brightness", "params": {"brightness": 1.1}},
+                             {"procedure": "subtitles", "params": {}}]))
+    assert queue == "video_edit_queue"
+    edit = deliver.consumers["video_edit_queue"]
+    edit.handle(json.loads(json.dumps(first)), now())        # runs and publishes, then "dies" (no ack)
+    deliver_once(deliver, "video_edit_queue", first, redelivered=True)
+    assert len(broker.queues["video_subtitles_queue"]) == 2  # the redelivery could not know it had published
+    deliver({"messageId": "drain"}, queue="__drain__")
+    replies = [r["status"] for r in broker.queues["project_queue"]]
+    assert replies == ["success"]
+    assert speech.runs == 1
+    assert (tmp_path / "r.mp4").is_file() and not list(tmp_path.glob(".video-work-*"))
+
+
+# A second copy of a stage that is running, without the redelivered flag, is dropped
+def test_duplicate_without_redelivered_is_dropped(services, sample_video, tmp_path):
+    from common.stage import work_dir
+    broker, deliver = services
+    out = str(tmp_path / "r.mp4")
+    _queue, first = plan_for(deliver, broker, job(sample_video, out,
+                             [{"procedure": "contrast", "params": {"contrastFactor": 1.2}},
+                              {"procedure": "subtitles", "params": {}}]))
+    # another delivery holds the stage
+    work = work_dir(out, first["messageId"])
+    work.mkdir()
+    (work / "stage-0.claim").touch()
+    deliver_once(deliver, "video_edit_queue", first, redelivered=False)
+    assert not broker.queues.get("video_subtitles_queue")
+    assert not broker.queues.get("project_queue")
+    assert not (work / "stage-0.mp4").exists()
+    assert broker.acked == 2  # router + the dropped copy
+
+
+# A redelivered message takes over a stage whose claim was left by a service that died
+def test_redelivered_message_takes_over_the_claim(services, sample_video, tmp_path):
+    from common.stage import work_dir
+    broker, deliver = services
+    out = str(tmp_path / "r.mp4")
+    _queue, first = plan_for(deliver, broker, job(sample_video, out,
+                             [{"procedure": "contrast", "params": {"contrastFactor": 1.2}},
+                              {"procedure": "subtitles", "params": {}}]))
+    work = work_dir(out, first["messageId"])
+    work.mkdir()
+    (work / "stage-0.claim").touch()
+    deliver_once(deliver, "video_edit_queue", first, redelivered=True)
+    assert len(broker.queues["video_subtitles_queue"]) == 1
+    assert (work / "stage-0.mp4").is_file()
+
+
+# A later stage of a job that has already ended (work directory gone) is dropped without a reply
+def test_stage_of_an_ended_job_is_dropped(services, sample_video, tmp_path):
+    broker, deliver = services
+    out = str(tmp_path / "r.mp4")
+    _queue, first = plan_for(deliver, broker, job(sample_video, out,
+                             [{"procedure": "contrast", "params": {"contrastFactor": 1.2}},
+                              {"procedure": "subtitles", "params": {}}]))
+    first["parameters"]["stage"] = 1
+    deliver_once(deliver, "video_subtitles_queue", first, redelivered=True)
+    assert not broker.queues.get("project_queue")
+    assert not list(tmp_path.glob(".video-work-*"))
+
+
+# The work directory still exists when the reply is published (it is removed afterwards),
+# for success and for failure, so a crash in between leads to a repeated stage, not a lost reply
+@pytest.mark.parametrize("tools,status", [
+    ([{"procedure": "brightness", "params": {"brightness": 1.1}}], "success"),
+    ([{"procedure": "trim", "params": {"start": 20, "end": 30}}], "error"),
+])
+def test_reply_is_sent_before_cleanup(services, sample_video, tmp_path, tools, status):
+    broker, deliver = services
+    out = str(tmp_path / "r.mp4")
+    seen = []
+    edit = deliver.consumers["video_edit_queue"]
+    publish = edit.publish
+
+    def spy(queue, msg):
+        if queue == "project_queue":
+            seen.append(bool(list(tmp_path.glob(".video-work-*"))))
+        publish(queue, msg)
+
+    edit.publish = spy
+    deliver(job(sample_video, out, tools))
+    assert broker.queues["project_queue"][0]["status"] == status
+    assert seen == [True]
+    assert not list(tmp_path.glob(".video-work-*"))
+

@@ -17,7 +17,7 @@ class VideoRouter(Consumer):
     def __init__(self):
         super().__init__(VIDEO_QUEUE, MICROSERVICE)
 
-    def handle(self, info: dict, started) -> None:
+    def handle(self, info: dict, started, redelivered: bool = False) -> None:
         msg_id = info["messageId"]
         params = info["parameters"]
         input_uri = params["inputImageURI"]

@@ -120,7 +120,7 @@ class Consumer:
         })
 
     # ---- incoming messages ----
-    def handle(self, info: dict, started) -> None:
+    def handle(self, info: dict, started, redelivered: bool = False) -> None:
         raise NotImplementedError
 
     def callback(self, ch, method, _properties, body) -> None:
@@ -133,7 +133,9 @@ class Consumer:
         except (ValueError, KeyError, TypeError) as e:
             print(f"[{self.queue}] invalid message discarded: {e}", flush=True)
         else:
-            self.handle(info, started)
+            # redelivered: RabbitMQ is delivering this message again because the
+            # consumer that had it died before acknowledging it
+            self.handle(info, started, bool(getattr(method, "redelivered", False)))
         # manual ack only at the end
         ch.basic_ack(delivery_tag=method.delivery_tag)
 

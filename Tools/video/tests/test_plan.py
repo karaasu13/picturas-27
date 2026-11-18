@@ -69,3 +69,12 @@ def test_progress_slices_are_contiguous(names):
     slices = [s["progress"] for s in plan_stages(tools(*names))]
     assert slices[0][0] == 0 and slices[-1][1] == 100
     assert all(a[1] == pytest.approx(b[0]) for a, b in zip(slices, slices[1:]))
+
+
+# Invalid extraction parameters reject the whole plan (the router answers before any stage)
+@pytest.mark.parametrize("params", [{"mode": "bogus", "format": "png"}, {"mode": "count", "count": 500},
+                                    {"mode": "interval", "interval": 0}, None])
+def test_invalid_extraction_parameters_reject_the_plan(params):
+    with pytest.raises(InvalidExtraction):
+        plan_stages([{"procedure": "trim", "params": {}}, {"procedure": "extract_frames", "params": params}])
+

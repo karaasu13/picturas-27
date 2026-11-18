@@ -135,6 +135,9 @@ cd Tools/video && python3 -m venv .venv && .venv/bin/pip install -r requirements
   `Tools/video/edit/effects/`.
 - The video services scale with replicas set at start-up (`VIDEO_*_REPLICAS`); there is no
   automatic scaling. Start with `--remove-orphans` when upgrading from the single `video_tool`.
+- Video stages can be delivered twice (a service dying between publishing the next stage and
+  acking). `Tools/video/common/stage.py` drops duplicates with a `stage-<n>.claim` file; keep
+  replying to `projects` before removing the work directory.
 - To add a frame effect for video, add one module to `Tools/video/edit/effects/` (file name =
   procedure name, `apply(img, **params)`), then expose it in `projects/utils/video.js` and in
   the frontend toolbar. A new kind of video work is a new service with its own queue and a
