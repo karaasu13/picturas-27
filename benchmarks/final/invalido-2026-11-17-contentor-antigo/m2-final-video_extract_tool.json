@@ -1,0 +1,72 @@
+{
+  "label": "final",
+  "measured_at": "2026-11-17T10:28:00.991906+00:00",
+  "stopped_services": [
+    "video_extract_tool"
+  ],
+  "effects": 12,
+  "unavailable": [],
+  "unavailable_pct": 0.0,
+  "detail": {
+    "brightness": {
+      "available": true,
+      "seconds": 12.5,
+      "detail": "ok"
+    },
+    "contrast": {
+      "available": true,
+      "seconds": 24.7,
+      "detail": "ok"
+    },
+    "saturation": {
+      "available": true,
+      "seconds": 35.9,
+      "detail": "ok"
+    },
+    "binarization": {
+      "available": true,
+      "seconds": 46.1,
+      "detail": "ok"
+    },
+    "rotate": {
+      "available": true,
+      "seconds": 56.0,
+      "detail": "ok"
+    },
+    "resize": {
+      "available": true,
+      "seconds": 62.8,
+      "detail": "ok"
+    },
+    "cut": {
+      "available": true,
+      "seconds": 68.0,
+      "detail": "ok"
+    },
+    "border": {
+      "available": true,
+      "seconds": 78.2,
+      "detail": "ok"
+    },
+    "trim": {
+      "available": true,
+      "seconds": 81.2,
+      "detail": "ok"
+    },
+    "speed": {
+      "available": true,
+      "seconds": 86.4,
+      "detail": "ok"
+    },
+    "subtitles": {
+      "available": true,
+      "seconds": 97.8,
+      "detail": "ok"
+    },
+    "extract_frames": {
+      "available": true,
+      "seconds": 99.0,
+      "detail": "ok"
+    }
+  }
+}

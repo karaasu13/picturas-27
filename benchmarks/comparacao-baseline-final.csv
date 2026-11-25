@@ -1,0 +1,17 @@
+rnf;metrica;cenario;unidade;baseline;final;variacao_pct;alvo;minimo;estado
+RNF-1;M1 ficheiros existentes modificados;acrescentar efeito invert;ficheiros;1;0;;0;<=1;atingido
+RNF-1;M2 efeitos indisponiveis (parar legendas);12 efeitos;%;100;8.3;;8;<=17;atingido
+RNF-1;M2 efeitos indisponiveis (parar extracao);12 efeitos;%;100;8.3;;8;<=17;atingido
+RNF-1;M2 efeitos indisponiveis (parar edicao);12 efeitos;%;100;91.7;;;;informativo
+RNF-1;M3 imagem do servico de edicao;;MB;1691.6;852.9;-49.6;<=846;<=1184;minimo
+RNF-1;M4 complexidade maxima;Tools/video;;22;9;-59.1;<=10;<=15;atingido
+RNF-1;M4 funcoes acima de 10;Tools/video;funcoes;6;0;;;;informativo
+RNF-2;P1a lote leve com legendagem;S2;s;60.216;16.289;-72.9;<=19.3;<=30;atingido
+RNF-2;P1b racio S2/S2R;S2,S2R;;3.13;1.73;-44.8;<=1.5;<=2.0;minimo
+RNF-2;P2 debito em lote;S1;videos/min;12.427;21.672;74.4;>=37;>=18.6;minimo
+RNF-2;P3 videos em simultaneo;S1,S2R,S2;videos;1;4;300;>=4;>=2;atingido
+RNF-2;P4 caso simples;S0;s;4.891;6.772;38.5;<=5.4;<=6.1;nao atingido
+RNF-2;lote de 4 videos sozinho;S2R;s;19.256;9.437;-51.0;;;informativo
+RNF-2;trabalho pesado (legendas 60 s);S2;s;46.192;49.113;6.3;;;efeito colateral
+RNF-2;12 efeitos em simultaneo (em bateria);controlo M2;s;89.2;46.2;-48.2;;;informativo
+Funcional;regressao ponta a ponta;44 casos;casos;44 (referencia);44 passam;;44;44;atingido

@@ -1,0 +1,70 @@
+{
+  "label": "final-controlo",
+  "measured_at": "2026-11-17T11:57:11.248447+00:00",
+  "stopped_services": [],
+  "effects": 12,
+  "unavailable": [],
+  "unavailable_pct": 0.0,
+  "detail": {
+    "extract_frames": {
+      "available": true,
+      "seconds": 5.2,
+      "detail": "ok"
+    },
+    "binarization": {
+      "available": true,
+      "seconds": 14.7,
+      "detail": "ok"
+    },
+    "saturation": {
+      "available": true,
+      "seconds": 16.7,
+      "detail": "ok"
+    },
+    "brightness": {
+      "available": true,
+      "seconds": 17.3,
+      "detail": "ok"
+    },
+    "contrast": {
+      "available": true,
+      "seconds": 18.5,
+      "detail": "ok"
+    },
+    "cut": {
+      "available": true,
+      "seconds": 24.9,
+      "detail": "ok"
+    },
+    "resize": {
+      "available": true,
+      "seconds": 27.1,
+      "detail": "ok"
+    },
+    "rotate": {
+      "available": true,
+      "seconds": 29.5,
+      "detail": "ok"
+    },
+    "trim": {
+      "available": true,
+      "seconds": 29.7,
+      "detail": "ok"
+    },
+    "border": {
+      "available": true,
+      "seconds": 33.5,
+      "detail": "ok"
+    },
+    "speed": {
+      "available": true,
+      "seconds": 34.9,
+      "detail": "ok"
+    },
+    "subtitles": {
+      "available": true,
+      "seconds": 46.2,
+      "detail": "ok"
+    }
+  }
+}

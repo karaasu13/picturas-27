@@ -1,0 +1,128 @@
+{
+  "label": "final",
+  "measured_at": "2026-11-17T11:41:31.163156+00:00",
+  "environment": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpus": 16,
+    "python": "3.14.6",
+    "docker": "29.9.3",
+    "docker_cpus_mem": "16 CPU / 8107229184 bytes",
+    "compose": "5.7.0"
+  },
+  "repository": {
+    "commit": "052310226c51fa57a17101c7bd1ad795674aac95",
+    "branch": "main",
+    "changed_files_ignoring_eol": 16
+  },
+  "video_services_running_replicas": {
+    "video_edit_tool": 4,
+    "video_extract_tool": 1,
+    "video_router": 1,
+    "video_subtitles_tool": 1
+  },
+  "M3_video_image_sizes_mb": {
+    "picturas-video_router": 205.9,
+    "picturas-video_subtitles_tool": 1684.5,
+    "picturas-video_edit_tool": 852.9,
+    "picturas-video_extract_tool": 852.8
+  },
+  "M4_complexity_tools_video": {
+    "max": 9,
+    "mean": 2.81,
+    "functions": 95,
+    "over_10": 0,
+    "top": [
+      {
+        "file": "common/worker.py",
+        "name": "handle",
+        "complexity": 9
+      },
+      {
+        "file": "edit/processor.py",
+        "name": "resolve_trim",
+        "complexity": 8
+      },
+      {
+        "file": "extract_frames/extraction.py",
+        "name": "extract_frames",
+        "complexity": 8
+      },
+      {
+        "file": "extract_frames/extraction.py",
+        "name": "_check_value",
+        "complexity": 7
+      },
+      {
+        "file": "extract_frames/extraction.py",
+        "name": "sampling_times",
+        "complexity": 7
+      },
+      {
+        "file": "subtitles/captions.py",
+        "name": "write_captions",
+        "complexity": 7
+      },
+      {
+        "file": "common/media.py",
+        "name": "probe",
+        "complexity": 6
+      },
+      {
+        "file": "common/plan.py",
+        "name": "_split_at_subtitles",
+        "complexity": 6
+      },
+      {
+        "file": "common/plan.py",
+        "name": "_video_stages",
+        "complexity": 6
+      },
+      {
+        "file": "common/stage.py",
+        "name": "run_stage",
+        "complexity": 6
+      }
+    ]
+  },
+  "loc_tools_video": {
+    "total": 907,
+    "files": {
+      "__init__.py": 0,
+      "common/__init__.py": 0,
+      "common/errors.py": 27,
+      "common/media.py": 55,
+      "common/messaging.py": 118,
+      "common/plan.py": 85,
+      "common/stage.py": 78,
+      "common/worker.py": 44,
+      "edit/__init__.py": 0,
+      "edit/effects/__init__.py": 28,
+      "edit/effects/binarization.py": 6,
+      "edit/effects/border.py": 4,
+      "edit/effects/brightness.py": 4,
+      "edit/effects/contrast.py": 4,
+      "edit/effects/cut.py": 4,
+      "edit/effects/resize.py": 4,
+      "edit/effects/rotate.py": 4,
+      "edit/effects/saturation.py": 4,
+      "edit/processor.py": 204,
+      "edit/worker.py": 6,
+      "extract_frames/__init__.py": 0,
+      "extract_frames/extraction.py": 107,
+      "extract_frames/worker.py": 6,
+      "router/__init__.py": 0,
+      "router/router.py": 33,
+      "subtitles/__init__.py": 0,
+      "subtitles/captions.py": 76,
+      "subtitles/worker.py": 6
+    }
+  },
+  "dockerfiles_tools_video": [
+    "Tools/video/edit/Dockerfile",
+    "Tools/video/extract_frames/Dockerfile",
+    "Tools/video/router/Dockerfile",
+    "Tools/video/subtitles/Dockerfile"
+  ]
+}

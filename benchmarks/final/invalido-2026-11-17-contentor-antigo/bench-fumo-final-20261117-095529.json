@@ -1,0 +1,157 @@
+{
+  "label": "fumo-final",
+  "note": "",
+  "started_at": "2026-11-17T09:55:29.470166+00:00",
+  "commit": "052310226c51fa57a17101c7bd1ad795674aac95",
+  "branch": "main",
+  "host": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "cpus": 16
+  },
+  "params": {
+    "runs": 1,
+    "heavy_seconds": 60,
+    "delay": 5
+  },
+  "scenarios": {
+    "S0": {
+      "runs": [
+        {
+          "status": "ok",
+          "seconds": 7.462,
+          "events": 1,
+          "detected_by": "socket",
+          "videos": {
+            "6afc24998562506b2b700c82": {
+              "first_progress_s": 2.003,
+              "done_s": 7.237
+            }
+          },
+          "queues": {
+            "max_unacked": 1,
+            "max_ready": 0,
+            "max_consumers": 1,
+            "samples": [
+              {
+                "t": 0.01,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 0,
+                    "consumers": 1
+                  }
+                }
+              },
+              {
+                "t": 1.04,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 0,
+                    "consumers": 1
+                  }
+                }
+              },
+              {
+                "t": 2.05,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 0,
+                    "consumers": 1
+                  }
+                }
+              },
+              {
+                "t": 3.07,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 0,
+                    "consumers": 1
+                  }
+                }
+              },
+              {
+                "t": 4.1,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 0,
+                    "consumers": 1
+                  }
+                }
+              },
+              {
+                "t": 5.13,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 1,
+                    "consumers": 1
+                  }
+                }
+              },
+              {
+                "t": 6.15,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 1,
+                    "consumers": 1
+                  }
+                }
+              },
+              {
+                "t": 7.17,
+                "queues": {
+                  "video_queue": {
+                    "ready": 0,
+                    "unacked": 1,
+                    "consumers": 1
+                  }
+                }
+              }
+            ],
+            "error": null,
+            "note": "A API de gest\u00e3o do RabbitMQ atualiza as estat\u00edsticas a cada ~5 s."
+          },
+          "videos_per_min": 8.041,
+          "max_parallel_progress": 1
+        }
+      ],
+      "seconds": {
+        "n_ok": 1,
+        "n": 1,
+        "median": 7.462,
+        "min": 7.462,
+        "max": 7.462,
+        "values": [
+          7.462
+        ]
+      },
+      "max_unacked": 1,
+      "max_parallel_progress": 1,
+      "videos_per_min": {
+        "n_ok": 1,
+        "n": 1,
+        "median": 8.041,
+        "min": 8.041,
+        "max": 8.041,
+        "values": [
+          8.041
+        ]
+      }
+    }
+  },
+  "derived": {
+    "P4_simple_case_s": 7.462,
+    "P2_videos_per_min": null,
+    "P3_max_parallel_progress": 1,
+    "P3_max_unacked_rabbitmq": 1,
+    "P1_light_batch_mixed_s": null,
+    "P1_light_batch_alone_s": null,
+    "P1_ratio": null
+  },
+  "finished_at": "2026-11-17T09:55:44.918177+00:00"
+}

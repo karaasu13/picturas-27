@@ -1,0 +1,1273 @@
+{
+  "checked_at": "2026-11-17T11:38:20.334955+00:00",
+  "passed": 44,
+  "failed": 0,
+  "report": [
+    {
+      "case": "img-brightness",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-contrast",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-saturation",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-binarization",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-rotate",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-resize",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-cut",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-border",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "img-chain",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-brightness",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-contrast",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-saturation",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-binarization",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-rotate",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-resize",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-cut",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-border",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-trim",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-speed-2x",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-speed-0.5x",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-trim-speed-brightness",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-mov-input",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "vid-two-videos",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "mix-image-and-video",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "mix-video-only-tool",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "sub-trim-subtitles",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "sub-middle-of-pipeline",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "sub-no-speech",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "frames-from-original",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "frames-after-edits",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "frames-inserted-before-terminal",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "preview-brightness",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "preview-trim-speed",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "preview-subtitles-then-trim",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "preview-frames",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-corrupted-upload",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-too-long-free",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-image-on-video-endpoint",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-no-tools",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-ai-tool-with-video",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-trim-outside-duration",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-speed-out-of-range",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-resize-zero",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    },
+    {
+      "case": "err-frames-bad-count",
+      "verdict": "pass",
+      "failures": [],
+      "notes": []
+    }
+  ],
+  "observed": {
+    "img-brightness": {
+      "status": "ok",
+      "pipeline": [
+        "brightness"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 3451,
+          "sha256": "0d90f49839cd7f595d2cdbf0a41b9718d2f828b4a8db0f5f5fcc28a72ded103d",
+          "kind": "png",
+          "size": [
+            320,
+            240
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-contrast": {
+      "status": "ok",
+      "pipeline": [
+        "contrast"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 3211,
+          "sha256": "4b2a00a9cf837c499adb940bf83adadae0cea5fda6e85845ab13cdbf09800578",
+          "kind": "png",
+          "size": [
+            320,
+            240
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-saturation": {
+      "status": "ok",
+      "pipeline": [
+        "saturation"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 19707,
+          "sha256": "b3174705d67a8d9820dc8abce64ab2ed90b0aca3462925960f94bf7789baffcf",
+          "kind": "png",
+          "size": [
+            320,
+            240
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-binarization": {
+      "status": "ok",
+      "pipeline": [
+        "binarization"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 891,
+          "sha256": "9096521075ff5792a518931d5d810f4243119def228fd9d0075511d2bb7a8c00",
+          "kind": "png",
+          "size": [
+            320,
+            240
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-rotate": {
+      "status": "ok",
+      "pipeline": [
+        "rotate"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 2836,
+          "sha256": "5672884a52408103edc42a12ce81d1d15b0455e394f7d9b26d0f2d0e5a72df76",
+          "kind": "png",
+          "size": [
+            240,
+            320
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-resize": {
+      "status": "ok",
+      "pipeline": [
+        "resize"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 1213,
+          "sha256": "9f24903630031634af2e70310c60f0da18b0ac067c8053f9ccaa0c9064efc62b",
+          "kind": "png",
+          "size": [
+            160,
+            120
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-cut": {
+      "status": "ok",
+      "pipeline": [
+        "cut"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 1189,
+          "sha256": "42d6b9f1a2f7ca4951ff20fe0d8d2f15e3d78a7071a3d10490923c9634c2663d",
+          "kind": "png",
+          "size": [
+            180,
+            140
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-border": {
+      "status": "ok",
+      "pipeline": [
+        "border"
+      ],
+      "seconds": 0.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 3513,
+          "sha256": "1e0cdf355ee3f1850dbe1d8c9949952f02f845e3a0013b60c48571678cf9051a",
+          "kind": "png",
+          "size": [
+            340,
+            260
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "img-chain": {
+      "status": "ok",
+      "pipeline": [
+        "brightness",
+        "rotate",
+        "border"
+      ],
+      "seconds": 0.4,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 5717,
+          "sha256": "c89a837b1aee0ecc5237e506ee3836900c8466c2900c87cdc9116ad123208f3e",
+          "kind": "png",
+          "size": [
+            260,
+            340
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "vid-brightness": {
+      "status": "ok",
+      "pipeline": [
+        "brightness"
+      ],
+      "seconds": 8.5,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 3464866,
+          "sha256": "4bbce50ce83d193cdeb951ea2153e8e85732b55be3b82c5b35c0775241e069a3",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-contrast": {
+      "status": "ok",
+      "pipeline": [
+        "contrast"
+      ],
+      "seconds": 9.1,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 3762211,
+          "sha256": "dec1f4866323734bad76a1330d7cdede0800fa28477128f65f26a12c83e1609d",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-saturation": {
+      "status": "ok",
+      "pipeline": [
+        "saturation"
+      ],
+      "seconds": 7.4,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 2597393,
+          "sha256": "725c1063fc53ec57b1b55380494b2a2e5f5133ed0377abf6a17728dc4e7d2df5",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-binarization": {
+      "status": "ok",
+      "pipeline": [
+        "binarization"
+      ],
+      "seconds": 5.8,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 4371765,
+          "sha256": "7b14d6c5975ec8d527b6de1c1e74d8ff7e43ed81e29ec5e115aa6806bbb74cd2",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-rotate": {
+      "status": "ok",
+      "pipeline": [
+        "rotate"
+      ],
+      "seconds": 3.9,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 3182454,
+          "sha256": "849bc087d3939780a4ebb0809c5b9e73ba2bb7962091f6c74e3e4ba2d9637ab8",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 720,
+            "height": 1280,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-resize": {
+      "status": "ok",
+      "pipeline": [
+        "resize"
+      ],
+      "seconds": 4.8,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 180501,
+          "sha256": "e6886a5f9cd85bde8a18bde0eb703619fa577b5e6fa8c7fe53550ace546e5eed",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 160,
+            "height": 120,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-cut": {
+      "status": "ok",
+      "pipeline": [
+        "cut"
+      ],
+      "seconds": 1.9,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 155215,
+          "sha256": "da268c01886e4119860eca9182b36a0a1bb478e007fa75993b40b377b2e0cb66",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 180,
+            "height": 140,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-border": {
+      "status": "ok",
+      "pipeline": [
+        "border"
+      ],
+      "seconds": 5.9,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 2882668,
+          "sha256": "99b913f7c3ff8b08781277ff126a8cc3cec8ffd6a12ac9a25ceb893d372ce8cd",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1300,
+            "height": 740,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-trim": {
+      "status": "ok",
+      "pipeline": [
+        "trim"
+      ],
+      "seconds": 2.1,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 1297932,
+          "sha256": "6dff9bf4cefa785bbfdff04423b140f630f6b1214cd22241a8225549b875f2e6",
+          "kind": "video",
+          "probe": {
+            "duration": 4.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 120
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-speed-2x": {
+      "status": "ok",
+      "pipeline": [
+        "speed"
+      ],
+      "seconds": 2.3,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 1909366,
+          "sha256": "5adcbe6c6373ec5384c862491b3dae589afc09604fdc434a8f2826822fb69f6f",
+          "kind": "video",
+          "probe": {
+            "duration": 5.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 150
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-speed-0.5x": {
+      "status": "ok",
+      "pipeline": [
+        "speed"
+      ],
+      "seconds": 7.3,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 3924297,
+          "sha256": "2c7aa08edfb405e23de2095ef0497839ed6c969706ff12ca55e638746b3d5208",
+          "kind": "video",
+          "probe": {
+            "duration": 19.98,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 599
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-trim-speed-brightness": {
+      "status": "ok",
+      "pipeline": [
+        "trim",
+        "speed",
+        "brightness"
+      ],
+      "seconds": 3.0,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 1259953,
+          "sha256": "0da869b8d98d9c40a60c7ef19e487cf30706ea4b2e402e05bec4c525507279d5",
+          "kind": "video",
+          "probe": {
+            "duration": 3.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 90
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-mov-input": {
+      "status": "ok",
+      "pipeline": [
+        "contrast"
+      ],
+      "seconds": 1.8,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 70221,
+          "sha256": "aa44fae1ab5b24b36f2e96614571676b9c80d6e98a3fca274b2eb93b51214b77",
+          "kind": "video",
+          "probe": {
+            "duration": 6.0,
+            "width": 640,
+            "height": 480,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 150
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "vid-two-videos": {
+      "status": "ok",
+      "pipeline": [
+        "saturation"
+      ],
+      "seconds": 7.5,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 2597393,
+          "sha256": "725c1063fc53ec57b1b55380494b2a2e5f5133ed0377abf6a17728dc4e7d2df5",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        },
+        {
+          "type": "video",
+          "bytes": 69801,
+          "sha256": "a642ebc067e41b45d354c66cf433503c32b89f6e2bf50141cee682bce65c808a",
+          "kind": "video",
+          "probe": {
+            "duration": 6.0,
+            "width": 640,
+            "height": 480,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 150
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "mix-image-and-video": {
+      "status": "ok",
+      "pipeline": [
+        "brightness"
+      ],
+      "seconds": 8.3,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 3451,
+          "sha256": "0d90f49839cd7f595d2cdbf0a41b9718d2f828b4a8db0f5f5fcc28a72ded103d",
+          "kind": "png",
+          "size": [
+            320,
+            240
+          ]
+        },
+        {
+          "type": "video",
+          "bytes": 3464866,
+          "sha256": "4bbce50ce83d193cdeb951ea2153e8e85732b55be3b82c5b35c0775241e069a3",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "mix-video-only-tool": {
+      "status": "ok",
+      "pipeline": [
+        "trim"
+      ],
+      "seconds": 1.8,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 950648,
+          "sha256": "0d4af9d61e758c53faf21b0010c3a1ed3436c4ca7debd3fa8054aea499204389",
+          "kind": "video",
+          "probe": {
+            "duration": 3.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 90
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "sub-trim-subtitles": {
+      "status": "ok",
+      "pipeline": [
+        "trim",
+        "subtitles"
+      ],
+      "seconds": 27.9,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 1503742,
+          "sha256": "5965f1eb5a4a7c1235a241f04f971896f307d4091fed4c83545f1b6061bed316",
+          "kind": "video",
+          "probe": {
+            "duration": 20.02,
+            "width": 1920,
+            "height": 1080,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 500
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "sub-middle-of-pipeline": {
+      "status": "ok",
+      "pipeline": [
+        "trim",
+        "subtitles",
+        "brightness"
+      ],
+      "seconds": 38.3,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 962203,
+          "sha256": "23aa216598df18d591ad3975707e9359d97a3db398e93c8587c6755bd1333089",
+          "kind": "video",
+          "probe": {
+            "duration": 15.0,
+            "width": 1920,
+            "height": 1080,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 375
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "sub-no-speech": {
+      "status": "ok",
+      "pipeline": [
+        "subtitles"
+      ],
+      "seconds": 6.5,
+      "results": [
+        {
+          "type": "video",
+          "bytes": 3166403,
+          "sha256": "052fbe8d022cfcf7db60e5c6c7e578e6ebbb3ed5516c66d7d284993575eebbf4",
+          "kind": "video",
+          "probe": {
+            "duration": 10.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 300
+          }
+        }
+      ],
+      "texts": 0
+    },
+    "frames-from-original": {
+      "status": "ok",
+      "pipeline": [
+        "extract_frames"
+      ],
+      "seconds": 1.8,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 180799,
+          "sha256": "0613b2949b0bc9d6c9c78e7e7bc16d09d456b02f1566ea27ce1a27af4f3c47fe",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 181866,
+          "sha256": "226e66e57cbf6942e6f6fdfa9ad5c2100c00c1a16cdba87a140eab27cab00ad4",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 179425,
+          "sha256": "3ba3edeafbdc6230f9bcb8885f015063e16e961a75eb431e4e606c5cfd83efb2",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 180991,
+          "sha256": "89705556b8bc7433b129fcf1079113e8ea16ad6558fbb4bdf53dc2357d0238f6",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 163887,
+          "sha256": "f550ceab34d3cb4af22179d94934a60914cfda7d4017b55265ae6f0dbfe1be4e",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "frames-after-edits": {
+      "status": "ok",
+      "pipeline": [
+        "trim",
+        "brightness",
+        "extract_frames"
+      ],
+      "seconds": 5.7,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 191185,
+          "sha256": "0951930e493ab7d4c799323514d263b54201b0ba3e5a98408ad14f908f5557ff",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 172330,
+          "sha256": "0ec8fa75ee01ad7a54720dbacac5d4250b4f8baae9ce059fa52a74ef53e4f05b",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 183537,
+          "sha256": "44d5309e6c2b0e951bd697839f1dee4c63a6f53f16f6e7cbcf20072ab15ea05a",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 189428,
+          "sha256": "61d85f88cce9ffd5872563d2be040e6afb5cc3140faac69e5100207aeb2d6acb",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 193566,
+          "sha256": "8b5ee90c262cf51458411a12713ef87925be73455aeb0c3899f79a401c06f514",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "frames-inserted-before-terminal": {
+      "status": "ok",
+      "pipeline": [
+        "contrast",
+        "extract_frames"
+      ],
+      "seconds": 8.7,
+      "results": [
+        {
+          "type": "image",
+          "bytes": 169679,
+          "sha256": "0c9feaf4c8a1ad8d1a8c5030a95ca2d9170bad19edc33856a2a8c437498480e9",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 193719,
+          "sha256": "a4d96c86aa80814acfc270b3eea7d7fefa0c07aced095551957b5665d9289c24",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 190990,
+          "sha256": "cee22d6893c03e8e968d7ea4a4a1ca8ccece62dc48181fc824e4a5bc87dac047",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 198337,
+          "sha256": "e4a8bcdb4220fb2fa9f95f320913c4ae77822975dd35ffe464aa359f6278e995",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "type": "image",
+          "bytes": 195216,
+          "sha256": "e4c24391d0b81e02fd10bdfdffade067de29ac71d8317d1927d49dc9405e8f71",
+          "kind": "png",
+          "size": [
+            1280,
+            720
+          ]
+        }
+      ],
+      "texts": 0
+    },
+    "preview-brightness": {
+      "status": "ok",
+      "pipeline": [
+        "brightness"
+      ],
+      "media_type": "video",
+      "results": [
+        {
+          "bytes": 1046796,
+          "sha256": "c64d31b8615e25a8685113d0ba8a3eadeb885001093917680214638f2eddf031",
+          "kind": "video",
+          "probe": {
+            "duration": 3.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 90
+          }
+        }
+      ]
+    },
+    "preview-trim-speed": {
+      "status": "ok",
+      "pipeline": [
+        "trim",
+        "speed"
+      ],
+      "media_type": "video",
+      "results": [
+        {
+          "bytes": 1143300,
+          "sha256": "b9709e21808022c008d9f9eafecb9e2a0b1f9494e8257573de0a85c6fd9502ea",
+          "kind": "video",
+          "probe": {
+            "duration": 3.0,
+            "width": 1280,
+            "height": 720,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 90
+          }
+        }
+      ]
+    },
+    "preview-subtitles-then-trim": {
+      "status": "ok",
+      "pipeline": [
+        "subtitles",
+        "trim"
+      ],
+      "media_type": "video",
+      "results": [
+        {
+          "bytes": 271239,
+          "sha256": "59bd8e9f6622cebe26393e0e4caf3ecb87483c3e8583de227ba43bee8edd80ee",
+          "kind": "video",
+          "probe": {
+            "duration": 3.0,
+            "width": 1920,
+            "height": 1080,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "frames": 75
+          }
+        }
+      ]
+    },
+    "preview-frames": {
+      "status": "ok",
+      "pipeline": [
+        "extract_frames"
+      ],
+      "media_type": "image",
+      "results": [
+        {
+          "bytes": 118829,
+          "sha256": "698d95ace0878692151c3467aa3212c77a3afe3aa5faa6feda01342f2d254b2e",
+          "kind": "png",
+          "size": [
+            1152,
+            480
+          ]
+        }
+      ]
+    },
+    "err-corrupted-upload": {
+      "status": "rejected",
+      "stage": "upload",
+      "http": 400,
+      "message": "Unreadable or corrupted video file"
+    },
+    "err-too-long-free": {
+      "status": "rejected",
+      "stage": "upload",
+      "http": 400,
+      "message": "The video is 90.0 s long and your profile limit is 60 s"
+    },
+    "err-image-on-video-endpoint": {
+      "status": "rejected",
+      "stage": "upload",
+      "http": 400,
+      "message": "Only video files (.mp4, .mov, .webm) can be uploaded here."
+    },
+    "err-no-tools": {
+      "status": "rejected",
+      "stage": "process",
+      "http": 400,
+      "message": "No tools selected",
+      "pipeline": []
+    },
+    "err-ai-tool-with-video": {
+      "status": "rejected",
+      "stage": "process",
+      "http": 400,
+      "message": "Effects not available for video: text_ai",
+      "pipeline": [
+        "text_ai"
+      ]
+    },
+    "err-trim-outside-duration": {
+      "status": "error",
+      "pipeline": [
+        "trim"
+      ],
+      "error_code": "2003",
+      "message": "Trim [20.0, 30.0] s is outside the video duration (10.00 s)"
+    },
+    "err-speed-out-of-range": {
+      "status": "error",
+      "pipeline": [
+        "speed"
+      ],
+      "error_code": "2005",
+      "message": "Speed must be between 0.25x and 5.0x (got 50.0x)"
+    },
+    "err-resize-zero": {
+      "status": "error",
+      "pipeline": [
+        "resize"
+      ],
+      "error_code": "2001",
+      "message": "height and width must be > 0"
+    },
+    "err-frames-bad-count": {
+      "status": "rejected",
+      "stage": "tool",
+      "http": 400,
+      "message": "Frame count must be an integer between 1 and 100"
+    }
+  }
+}

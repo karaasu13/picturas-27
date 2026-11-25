@@ -1,0 +1,12 @@
+{
+  "label": "baseline",
+  "metric": "M1 - ficheiros existentes do worker modificados para acrescentar o efeito de vídeo 'invert'",
+  "measured_on": "cópia de trabalho do agente de IA, commit base 052310226c51fa57a17101c7bd1ad795674aac95, 15 nov 2026",
+  "M1_worker_existing_files_modified": 1,
+  "worker_files_added": 0,
+  "files": [{"status": "M", "path": "Tools/video/effects.py"}],
+  "services_to_rebuild": ["video_tool"],
+  "video_effects_redeployed": 12,
+  "check": "vídeo de teste processado com o efeito; MD5 dos fotogramas 2a9e3f1cad9ad306c38314791a413498",
+  "outside_worker_not_counted": ["projects/utils/video.js (VIDEO_TOOLS)", "frontend (botão e tipos da ferramenta)"]
+}

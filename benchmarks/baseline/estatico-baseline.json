@@ -1,0 +1,97 @@
+{
+  "label": "baseline",
+  "measured_at": "2026-11-15T18:23:38.445348+00:00",
+  "environment": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpus": 16,
+    "python": "3.14.6",
+    "docker": "29.9.3",
+    "docker_cpus_mem": "16 CPU / 8107233280 bytes",
+    "compose": "5.7.0"
+  },
+  "repository": {
+    "commit": "052310226c51fa57a17101c7bd1ad795674aac95",
+    "branch": "main",
+    "changed_files_ignoring_eol": 0
+  },
+  "video_services_running_replicas": {
+    "video_tool": 1
+  },
+  "M3_video_image_sizes_mb": {
+    "picturas-video_tool": 1691.6
+  },
+  "M4_complexity_tools_video": {
+    "max": 22,
+    "mean": 4.56,
+    "functions": 41,
+    "over_10": 6,
+    "top": [
+      {
+        "file": "video_processor.py",
+        "name": "process_video",
+        "complexity": 22
+      },
+      {
+        "file": "video_processor.py",
+        "name": "_process_video",
+        "complexity": 20
+      },
+      {
+        "file": "video_processor.py",
+        "name": "probe",
+        "complexity": 19
+      },
+      {
+        "file": "frame_extraction.py",
+        "name": "extract_frames",
+        "complexity": 14
+      },
+      {
+        "file": "frame_extraction.py",
+        "name": "validate_params",
+        "complexity": 13
+      },
+      {
+        "file": "video.py",
+        "name": "callback",
+        "complexity": 11
+      },
+      {
+        "file": "video_processor.py",
+        "name": "resolve_trim",
+        "complexity": 9
+      },
+      {
+        "file": "frame_extraction.py",
+        "name": "sampling_times",
+        "complexity": 7
+      },
+      {
+        "file": "subtitles.py",
+        "name": "write_captions",
+        "complexity": 7
+      },
+      {
+        "file": "video_processor.py",
+        "name": "validate_tools",
+        "complexity": 7
+      }
+    ]
+  },
+  "loc_tools_video": {
+    "total": 651,
+    "files": {
+      "__init__.py": 0,
+      "effects.py": 52,
+      "frame_extraction.py": 82,
+      "subtitles.py": 69,
+      "video.py": 154,
+      "video_processor.py": 294
+    }
+  },
+  "dockerfiles_tools_video": [
+    "Tools/video/Dockerfile"
+  ]
+}

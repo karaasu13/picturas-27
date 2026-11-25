@@ -1,0 +1,73 @@
+{
+  "label": "final",
+  "measured_at": "2026-11-17T12:31:44.480842+00:00",
+  "stopped_services": [
+    "video_edit_tool"
+  ],
+  "effects": 12,
+  "unavailable": [
+    "binarization",
+    "border",
+    "brightness",
+    "contrast",
+    "cut",
+    "resize",
+    "rotate",
+    "saturation",
+    "speed",
+    "subtitles",
+    "trim"
+  ],
+  "unavailable_pct": 91.7,
+  "detail": {
+    "extract_frames": {
+      "available": true,
+      "seconds": 4.0,
+      "detail": "ok"
+    },
+    "trim": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "contrast": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "cut": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "subtitles": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "saturation": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "brightness": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "speed": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "binarization": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "resize": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "rotate": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    },
+    "border": {
+      "available": false,
+      "detail": "sem resposta em 600 s"
+    }
+  }
+}
